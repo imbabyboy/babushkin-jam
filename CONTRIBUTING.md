@@ -71,4 +71,5 @@ node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json'))"
 1. Поднять `version` в `extension/manifest.json` и дописать `CHANGELOG.md`.
 2. Закоммитить и поставить тег: `git tag v0.4.0 && git push --tags`.
 3. GitHub Actions соберёт `babushkin-jam.zip` и создаст релиз.
-4. Если менялся сервер — задеплоить его до релиза расширения (`sh deploy/deploy.sh`, см. [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)).
+4. Загрузить этот zip в [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) → babushkin-jam → «Пакет» → «Загрузить новый пакет» и отправить на проверку.
+5. Если менялся сервер — задеплоить его до релиза расширения (`sh deploy/deploy.sh`, см. [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)).

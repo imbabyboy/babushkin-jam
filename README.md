@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe">Chrome Web Store</a> ·
   <a href="#установка">Установка</a> ·
   <a href="#как-пользоваться">Как пользоваться</a> ·
   <a href="#приватность">Приватность</a> ·
@@ -19,11 +20,17 @@
 </p>
 
 <p align="center">
+  <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe"><img src="https://img.shields.io/chrome-web-store/v/iincaikpjidieflnaajiehogcimgbepe?label=Chrome%20Web%20Store&color=4285F4&logo=googlechrome&logoColor=white" alt="Версия в Chrome Web Store"></a>
+  <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe"><img src="https://img.shields.io/chrome-web-store/users/iincaikpjidieflnaajiehogcimgbepe?color=4285F4" alt="Пользователей в Chrome Web Store"></a>
   <a href="https://github.com/imbabyboy/babushkin-jam/releases"><img src="https://img.shields.io/github/v/release/imbabyboy/babushkin-jam?label=release&color=d6336c" alt="Последний релиз"></a>
   <a href="https://github.com/imbabyboy/babushkin-jam/actions/workflows/ci.yml"><img src="https://github.com/imbabyboy/babushkin-jam/actions/workflows/ci.yml/badge.svg?branch=main" alt="Статус CI"></a>
   <a href="#что-нужно"><img src="https://img.shields.io/badge/Chrome-111%2B-4285F4?logo=googlechrome&logoColor=white" alt="Chrome 111 и новее"></a>
   <a href="#свой-сервер"><img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 18 и новее"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="Лицензия MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe"><img src="https://img.shields.io/badge/Установить_из-Chrome_Web_Store-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Установить из Chrome Web Store"></a>
 </p>
 
 <p align="center">
@@ -54,12 +61,15 @@
 
 ## Установка
 
+**Из Chrome Web Store** — [babushkin-jam](https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe) → «Установить». Обновления приходят сами.
+
+**Вручную** — если магазин недоступен или нужна конкретная версия:
+
 1. Скачайте `babushkin-jam.zip` со [страницы релизов](https://github.com/imbabyboy/babushkin-jam/releases) и распакуйте.
 2. Откройте `chrome://extensions` и включите «Режим разработчика» (справа вверху).
 3. «Загрузить распакованное» → выберите распакованную папку.
-4. Перезагрузите вкладку music.yandex.ru, если она была открыта.
 
-Сервер уже прописан, имя выбирается случайно («Суслик», «Волк»…), так что настраивать ничего не нужно.
+После установки перезагрузите вкладку music.yandex.ru, если она была открыта. Сервер уже прописан, имя выбирается случайно («Суслик», «Волк»…), так что настраивать ничего не нужно.
 
 ## Как пользоваться
 

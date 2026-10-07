@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Добавлено
+- Расширение опубликовано в [Chrome Web Store](https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe); ссылка в README.
+
 ## [0.3.0] — 2026-10-06
 
 Первая публичная версия.
