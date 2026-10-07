@@ -1,0 +1,15 @@
+{
+  "name": "yandex-jam-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Сервер комнат для джема в Яндекс Музыке",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

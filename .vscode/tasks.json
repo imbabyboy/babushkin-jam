@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Сервер: watch",
+      "detail": "node --watch: перезапуск при изменении server/*.js",
+      "type": "npm",
+      "script": "dev",
+      "path": "server",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "Сервер: установить зависимости",
+      "type": "npm",
+      "script": "install",
+      "path": "server",
+      "problemMatcher": []
+    },
+    {
+      "label": "Расширение: собрать zip",
+      "detail": "dist/babushkin-jam.zip — для Chrome Web Store и друзей",
+      "type": "shell",
+      "command": "mkdir -p dist && rm -f dist/babushkin-jam.zip && cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'",
+      "problemMatcher": []
+    }
+  ]
+}

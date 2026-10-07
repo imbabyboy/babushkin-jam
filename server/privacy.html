@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>babushkin-jam — политика конфиденциальности</title>
+<style>
+  :root { --bg: #fff; --fg: #1d1d1f; --muted: #6e6e73; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d1d1f; --fg: #f5f5f7; --muted: #a1a1a6; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 32px 0 8px; }
+  p, li { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  hr { border: 0; border-top: 1px solid var(--muted); opacity: .3; margin: 40px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>babushkin-jam: политика конфиденциальности</h1>
+  <p class="muted">Обновлено 6 октября 2026</p>
+
+  <p>babushkin-jam — неофициальное расширение для Chrome. Оно позволяет нескольким людям слушать Яндекс Музыку синхронно. Расширение не связано с ООО «Яндекс» и не одобрено им.</p>
+
+  <h2>Что отправляется на сервер</h2>
+  <p>Только пока вы находитесь в комнате джема, расширение отправляет на сервер джема (<code>141-11-197-57.sslip.io</code>):</p>
+  <ul>
+    <li>имя, которое вы указали (по умолчанию случайное название животного);</li>
+    <li>код комнаты;</li>
+    <li>текущий трек: название, исполнитель, альбом, обложка, идентификаторы трека и альбома в Яндекс Музыке, длительность;</li>
+    <li>состояние воспроизведения: позиция, пауза или воспроизведение, следующий трек.</li>
+  </ul>
+  <p>Сервер передаёт эти данные остальным участникам той же комнаты, чтобы их плеер включил тот же трек на той же позиции.</p>
+
+  <h2>Что не собирается</h2>
+  <ul>
+    <li>Логины, пароли, cookies, данные аккаунта и подписки Яндекса.</li>
+    <li>История посещений и действия на других сайтах: расширение работает только на music.yandex.*.</li>
+    <li>Платёжные данные, контакты, местоположение.</li>
+  </ul>
+  <p>Чтобы узнать идентификатор играющего трека, расширение читает ответы сайта Яндекс Музыки внутри вашей вкладки. Эти ответы обрабатываются только на вашем устройстве и никуда не отправляются.</p>
+
+  <h2>Хранение</h2>
+  <p>Сервер хранит состояние комнаты только в оперативной памяти, без базы данных и журналов. Пустая комната удаляется через 5 минут после выхода последнего участника. Имя, код комнаты и адрес сервера хранятся локально в вашем браузере (<code>chrome.storage</code>).</p>
+  <p>Данные не продаются, не передаются третьим лицам и не используются для рекламы или аналитики.</p>
+
+  <h2>Контакты</h2>
+  <p>Вопросы можно задать через страницу расширения в Chrome Web Store (раздел «Поддержка»).</p>
+
+  <hr>
+
+  <h1>babushkin-jam: privacy policy</h1>
+  <p class="muted">Updated October 6, 2026</p>
+
+  <p>babushkin-jam is an unofficial Chrome extension that lets several people listen to Yandex Music in sync. It is not affiliated with or endorsed by Yandex.</p>
+
+  <h2>Data sent to the server</h2>
+  <p>Only while you are in a jam room, the extension sends to the jam server (<code>141-11-197-57.sslip.io</code>):</p>
+  <ul>
+    <li>the display name you chose (a random animal name by default);</li>
+    <li>the room code;</li>
+    <li>the current track: title, artist, album, cover URL, Yandex Music track and album IDs, duration;</li>
+    <li>playback state: position, paused or playing, next track.</li>
+  </ul>
+  <p>The server relays this data to the other members of the same room so their player can play the same track at the same position.</p>
+
+  <h2>Data not collected</h2>
+  <ul>
+    <li>Logins, passwords, cookies, Yandex account or subscription data.</li>
+    <li>Browsing history or activity on other sites: the extension only runs on music.yandex.*.</li>
+    <li>Payment data, contacts, location.</li>
+  </ul>
+  <p>To learn the ID of the playing track, the extension reads Yandex Music responses inside your tab. They are processed on your device only and are never sent anywhere.</p>
+
+  <h2>Retention</h2>
+  <p>The server keeps room state in memory only, with no database or logs. An empty room is deleted 5 minutes after the last member leaves. Your name, room code and server address are stored locally in your browser (<code>chrome.storage</code>).</p>
+  <p>Data is not sold, not shared with third parties and not used for advertising or analytics.</p>
+
+  <h2>Contact</h2>
+  <p>Questions can be asked via the extension page in the Chrome Web Store (Support tab).</p>
+</main>
+</body>
+</html>

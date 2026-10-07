@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>babushkin-jam</h1>
+
+  <section id="setup">
+    <label>Ваше имя <input id="name" maxlength="40" placeholder="Гость"></label>
+    <label>Сервер <input id="server" placeholder="wss://141-11-197-57.sslip.io:8443"></label>
+    <button id="create" class="primary">Создать комнату</button>
+    <div class="row">
+      <input id="code" maxlength="12" placeholder="Код комнаты">
+      <button id="join">Войти</button>
+    </div>
+  </section>
+
+  <section id="inroom" hidden>
+    <div class="code-row">
+      Комната <b id="room-code"></b>
+      <button id="copy" class="link">скопировать приглашение</button>
+    </div>
+    <div id="conn" class="muted"></div>
+    <div id="track" class="track"></div>
+    <dl id="server-state" class="state">
+      <dt>Трек</dt><dd id="s-track">—</dd>
+      <dt>Время</dt><dd id="s-time">—</dd>
+      <dt>Состояние</dt><dd id="s-play">—</dd>
+      <dt>Следующий</dt><dd id="s-next">—</dd>
+      <dt>У вас</dt><dd id="s-local">—</dd>
+      <dt>Версия</dt><dd id="s-version" class="muted">—</dd>
+    </dl>
+    <ul id="members"></ul>
+    <div id="warning" class="warning" hidden></div>
+    <div class="row">
+      <button id="resync">Синхронизировать</button>
+      <button id="leave">Выйти</button>
+    </div>
+  </section>
+
+  <div id="no-tab" class="warning" hidden>Откройте music.yandex.ru в этом браузере.</div>
+
+  <footer>
+    <button id="diag" class="link">Скопировать диагностику</button>
+    <span id="diag-ok" class="muted" hidden>скопировано</span>
+  </footer>
+
+  <p class="muted disclaimer">Неофициальное расширение, не связано с Яндексом.</p>
+
+  <script src="../src/shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

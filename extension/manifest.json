@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "babushkin-jam",
+  "version": "0.3.0",
+  "description": "Неофициальное расширение: слушайте Яндекс Музыку вместе — общий трек, пауза и перемотка у всех в комнате.",
+  "homepage_url": "https://141-11-197-57.sslip.io:8443/privacy",
+  "minimum_chrome_version": "111",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.music.yandex.ru/*",
+    "https://*.music.yandex.com/*",
+    "https://*.music.yandex.by/*",
+    "https://*.music.yandex.kz/*"
+  ],
+  "action": {
+    "default_title": "babushkin-jam",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.music.yandex.ru/*",
+        "https://*.music.yandex.com/*",
+        "https://*.music.yandex.by/*",
+        "https://*.music.yandex.kz/*"
+      ],
+      "js": [
+        "src/page.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://*.music.yandex.ru/*",
+        "https://*.music.yandex.com/*",
+        "https://*.music.yandex.by/*",
+        "https://*.music.yandex.kz/*"
+      ],
+      "js": [
+        "src/shared.js",
+        "src/overlay.js",
+        "src/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
