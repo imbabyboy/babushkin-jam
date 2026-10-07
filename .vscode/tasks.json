@@ -1,4 +1,6 @@
 {
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
   "version": "2.0.0",
   "tasks": [
     {
@@ -17,14 +19,102 @@
       "type": "npm",
       "script": "install",
       "path": "server",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
     },
     {
       "label": "Расширение: собрать zip",
       "detail": "dist/babushkin-jam.zip — для Chrome Web Store и друзей",
       "type": "shell",
       "command": "mkdir -p dist && rm -f dist/babushkin-jam.zip && cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "check",
+      "detail": "Синтаксис JS и manifest.json — то же, что CI",
+      "type": "shell",
+      "command": "for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check \"$f\" || exit 1; done && node -e \"JSON.parse(require('fs').readFileSync('extension/manifest.json')); console.log('ok')\"",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "fetch",
+      "detail": "git fetch",
+      "type": "shell",
+      "command": "git fetch",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "checkout main",
+      "detail": "git checkout main",
+      "type": "shell",
+      "command": "git checkout main",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "new branch",
+      "detail": "git checkout -b yj-…",
+      "type": "shell",
+      "command": "git checkout main && git checkout -b yj-${input:branchName}",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "checkout branch",
+      "detail": "git checkout yj-…",
+      "type": "shell",
+      "command": "git checkout yj-${input:branchName}",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "git pull main",
+      "detail": "Делаем только пул из main",
+      "type": "shell",
+      "command": "git pull origin main",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "git pull current",
+      "detail": "Делаем только пул из текущей ветки",
+      "type": "shell",
+      "command": "GIT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD) && git pull origin ${GIT_BRANCH_NAME}",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "git push",
+      "detail": "Делаем только пуш в текущую ветку",
+      "type": "shell",
+      "command": "GIT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD) && git push origin ${GIT_BRANCH_NAME}",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "git commit and push",
+      "detail": "Добавление, коммит и отправка на удаленный репозиторий",
+      "type": "shell",
+      "command": "git add . && GIT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD) && git commit -m \"${GIT_BRANCH_NAME} | ${input:commitMessage}\" && git push origin ${GIT_BRANCH_NAME}",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "commitMessage",
+      "type": "promptString",
+      "description": "Введите сообщение для коммита",
+      "default": ""
+    },
+    {
+      "id": "branchName",
+      "type": "promptString",
+      "description": "Название ветки без префикса yj-",
+      "default": ""
     }
   ]
 }

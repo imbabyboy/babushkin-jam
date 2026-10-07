@@ -115,7 +115,7 @@ npm run dev        # с перезапуском при изменении ко�
 cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'
 ```
 
-В VS Code: `Cmd+Shift+B` запускает сервер в режиме watch, остальное — в «Tasks: Run Task». Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
+В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка zip, проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Если что-то не работает
 
