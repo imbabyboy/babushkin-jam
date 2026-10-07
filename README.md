@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="extension/icons/icon128.png" width="112" alt="Логотип babushkin-jam: банка варенья с нотой">
+  <img src="assets/icons-prod/icon128.png" width="112" alt="Логотип babushkin-jam: банка варенья с нотой">
 </p>
 
 <h1 align="center">babushkin-jam</h1>
@@ -109,10 +109,12 @@ npm run dev        # с перезапуском при изменении ко�
 
 ### Разработка
 
-Расширение не нужно собирать: Chrome загружает папку `extension/` как есть. После правок нажмите ↻ у расширения в `chrome://extensions` и перезагрузите вкладку. Архив для релиза:
+Для разработки собирать ничего не нужно: Chrome загружает папку `extension/` как есть. После правок нажмите ↻ у расширения в `chrome://extensions` и перезагрузите вкладку.
+
+Локальная копия из `extension/` — с **голубой** иконкой и именем «babushkin-jam (local)», а версия из Chrome Web Store — с **красной**. Их можно держать установленными одновременно, только включённой — одну. Архив для магазина (красная иконка, имя без «(local)»):
 
 ```sh
-cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'
+sh tools/build.sh     # → dist/babushkin-jam.zip
 ```
 
 В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка zip, проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).

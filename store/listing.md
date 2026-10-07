@@ -4,7 +4,7 @@
 
 ## Пакет
 
-- Архив: `dist/babushkin-jam.zip` (задача VS Code «Расширение: собрать zip»).
+- Архив: `dist/babushkin-jam.zip` — `sh tools/build.sh` или задача VS Code «Расширение: собрать zip». Только он: папка `extension/` — локальная версия с голубой иконкой.
 - Видимость (Distribution → Visibility): **Unlisted** — по ссылке, или **Private** — только для указанных почт.
 
 ## Store listing
@@ -38,7 +38,7 @@ babushkin-jam — совместное прослушивание Яндекс �
 ```
 
 **Графика:**
-- Иконка 128×128: `extension/icons/icon128.png`
+- Иконка 128×128: `assets/icons-prod/icon128.png` (в `extension/icons/` — голубая иконка локальной версии)
 - Скриншот 640×400: `store/screenshot-640x400.png` (можно добавить ещё до 4: панель джема на music.yandex.ru, приглашение)
 - Маленькое рекламное изображение 440×280: `store/promo-440x280.png`
 - Очень большое рекламное изображение 1400×560: `store/marquee-1400x560.png`

@@ -381,6 +381,26 @@
 
   let lastNav = { url: null, at: 0 };
 
+  // Полная перезагрузка — крайний случай. Помним её в sessionStorage, а не в памяти:
+  // после перезагрузки память страницы пустая, и без этого вкладка могла бы
+  // перезагружаться по кругу (например, если сайт открыл трек по другому адресу).
+  const RELOAD_KEY = 'yjam-reload';
+  const RELOAD_GUARD_MS = 2 * 60 * 1000;
+  const SPA_WAIT_MS = 10000; // сколько ждём, пока сайт догрузится и роутер станет доступен
+
+  function reloadedRecently(url) {
+    try {
+      const r = JSON.parse(sessionStorage.getItem(RELOAD_KEY) || 'null');
+      return !!r && r.url === url && Date.now() - r.at < RELOAD_GUARD_MS;
+    } catch (e) { return false; }
+  }
+
+  function rememberReload(url) {
+    try { sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ url, at: Date.now() })); } catch (e) {}
+  }
+
+  const onTrackPage = (id) => new RegExp(`/track/${id}/?$`).test(location.pathname);
+
   // Каждый новый вызов отменяет предыдущий: иначе две попытки (из комнаты и из консоли)
   // жмут кнопки одновременно и мешают друг другу.
   let playGen = 0;
@@ -393,14 +413,22 @@
     const cancelled = () => gen !== playGen;
     const CANCELLED = { ok: false, cancelled: true, error: 'отменено новой командой' };
 
+    if (isPlaying(id)) return { ok: true, via: 'same-page', method: 'already' };
+
     const url = albumId ? `/album/${albumId}/track/${id}` : `/track/${id}`;
     let via = 'same-page';
-    if (location.pathname !== url) {
+    if (!onTrackPage(id)) {
       if (!(lastNav.url === url && Date.now() - lastNav.at < 6000)) {
         lastNav = { url, at: Date.now() };
-        via = spaNavigate(url);
+        // Сразу после открытия вкладки роутер сайта ещё не готов — ждём его, а не перезагружаем.
+        via = await waitFor(() => cancelled() || spaNavigate(url), SPA_WAIT_MS);
+        if (cancelled()) return CANCELLED;
         if (!via) {
+          if (reloadedRecently(url)) {
+            return { ok: false, error: 'не открылась страница трека даже после перезагрузки' };
+          }
           // полная перезагрузка: content.js переподключится и вызовет playTrack уже на нужной странице
+          rememberReload(url);
           location.assign(url);
           return { ok: true, reload: true };
         }
@@ -408,7 +436,6 @@
         via = 'pending';
       }
     }
-    if (isPlaying(id)) return { ok: true, via, method: 'already' };
 
     // 1. Кнопка нужного трека: «Слушать» в панели трека или кнопка в строке.
     //    Кнопка вверху страницы включает альбом с первого трека — её только запасным путём.

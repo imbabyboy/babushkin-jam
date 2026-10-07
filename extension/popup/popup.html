@@ -5,49 +5,96 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>babushkin-jam</h1>
-
-  <section id="setup">
-    <label>Ваше имя <input id="name" maxlength="40" placeholder="Гость"></label>
-    <label>Сервер <input id="server"></label>
-    <button id="create" class="primary">Создать комнату</button>
-    <div class="row">
-      <input id="code" maxlength="12" placeholder="Код комнаты">
-      <button id="join">Войти</button>
+  <header class="head">
+    <div id="head-lobby" class="title">
+      <span>babushkin-jam</span>
+      <span id="badge" class="badge" hidden>local</span>
     </div>
-  </section>
-
-  <section id="inroom" hidden>
-    <div class="code-row">
-      Комната <b id="room-code"></b>
-      <button id="copy" class="link">скопировать приглашение</button>
+    <div id="head-room" class="room-head" hidden>
+      <div class="status"><span id="room-dot" class="dot"></span><span id="role"></span></div>
+      <div id="room-code" class="room-code"></div>
     </div>
-    <div id="conn" class="muted"></div>
-    <div id="track" class="track"></div>
-    <dl id="server-state" class="state">
-      <dt>Трек</dt><dd id="s-track">—</dd>
-      <dt>Время</dt><dd id="s-time">—</dd>
-      <dt>Состояние</dt><dd id="s-play">—</dd>
-      <dt>Следующий</dt><dd id="s-next">—</dd>
-      <dt>У вас</dt><dd id="s-local">—</dd>
-      <dt>Версия</dt><dd id="s-version" class="muted">—</dd>
+    <button id="tools" class="icon-btn" title="Инструменты" aria-haspopup="menu" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
+    </button>
+  </header>
+
+  <div id="menu" class="menu" role="menu" hidden>
+    <button id="resync" class="menu-item" role="menuitem">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
+      <span id="resync-label">Синхронизировать</span>
+    </button>
+    <button id="diag" class="menu-item" role="menuitem">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg>
+      <span id="diag-label">Скопировать диагностику</span>
+    </button>
+    <div class="menu-sep"></div>
+    <dl class="menu-stats">
+      <dt>сервер</dt><dd id="m-server">—</dd>
+      <dt>пинг</dt><dd id="m-ping">—</dd>
+      <dt>расхождение</dt><dd id="m-drift">—</dd>
+      <dt>версия</dt><dd id="m-version">—</dd>
     </dl>
-    <ul id="members"></ul>
-    <div id="warning" class="warning" hidden></div>
-    <div class="row">
-      <button id="resync">Синхронизировать</button>
-      <button id="leave">Выйти</button>
+  </div>
+
+  <main id="setup" class="stack">
+    <label class="field">
+      <span class="label">Ваше имя</span>
+      <input id="name" class="input" maxlength="40" placeholder="Гость" autocomplete="off">
+    </label>
+
+    <div id="server-box" class="field" hidden>
+      <div class="label-row"><span class="label">Сервер</span><button id="server-hide" class="dashed">Скрыть</button></div>
+      <input id="server" class="input input-mono fade" spellcheck="false" autocomplete="off">
+      <div class="hint">Оставьте пустым — подключимся к общему серверу.</div>
     </div>
-  </section>
 
-  <div id="no-tab" class="warning" hidden>Откройте music.yandex.ru в этом браузере.</div>
+    <div class="create">
+      <button id="create" class="btn-primary">Создать комнату</button>
+      <div id="server-line" class="server-line">
+        <div class="status"><span id="srv-dot" class="dot"></span><span id="srv-text"></span></div>
+        <button id="server-show" class="dashed">Свой сервер</button>
+      </div>
+    </div>
 
-  <footer>
-    <button id="diag" class="link">Скопировать диагностику</button>
-    <span id="diag-ok" class="muted" hidden>скопировано</span>
-  </footer>
+    <div class="sep"></div>
 
-  <p class="muted disclaimer">Неофициальное расширение, не связано с Яндексом.</p>
+    <div class="field">
+      <span class="label">Есть код от друга?</span>
+      <div class="row">
+        <input id="code" class="input input-mono code-input" maxlength="12" placeholder="КОД" spellcheck="false" autocomplete="off">
+        <button id="join" class="btn-secondary">Войти</button>
+      </div>
+    </div>
+
+    <div id="no-tab-lobby" class="warning" hidden></div>
+    <p class="disclaimer">Неофициальное расширение, не связано с Яндексом.</p>
+  </main>
+
+  <main id="inroom" class="stack" hidden>
+    <div class="share">
+      <button id="copy" class="btn-primary btn-icon">
+        <svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <span id="copy-label">Скопировать ссылку</span>
+      </button>
+      <div id="invite-link" class="invite-link"></div>
+    </div>
+
+    <section class="people">
+      <div id="people-title" class="label people-title"></div>
+      <ul id="members" class="members"></ul>
+      <div id="alone" class="alone" hidden>Пока только вы. Отправьте ссылку — друг появится здесь.</div>
+    </section>
+
+    <div id="now" class="now" hidden>
+      <svg id="now-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+      <span id="now-text"></span>
+    </div>
+
+    <div id="warning" class="warning" hidden></div>
+    <button id="leave" class="btn-outline">Выйти из комнаты</button>
+  </main>
 
   <script src="../src/shared.js"></script>
   <script src="popup.js"></script>
