@@ -8,6 +8,8 @@ const YM_URLS = [
 
 const $ = (id) => document.getElementById(id);
 
+$('server').placeholder = DEFAULTS.serverUrl;
+
 async function findTab() {
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true, url: YM_URLS });
   if (active) return active;

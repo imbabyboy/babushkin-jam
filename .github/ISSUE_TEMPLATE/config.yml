@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Решение проблем
+    url: https://github.com/imbabyboy/babushkin-jam/blob/main/docs/TROUBLESHOOTING.md
+    about: Частые неполадки и как их проверить — загляните перед тем, как писать.
+  - name: Уязвимость
+    url: https://github.com/imbabyboy/babushkin-jam/security/advisories/new
+    about: Об уязвимостях — приватно, не в публичном issue.

@@ -3,7 +3,7 @@
   "name": "babushkin-jam",
   "version": "0.3.0",
   "description": "Неофициальное расширение: слушайте Яндекс Музыку вместе — общий трек, пауза и перемотка у всех в комнате.",
-  "homepage_url": "https://141-11-197-57.sslip.io:8443/privacy",
+  "homepage_url": "https://github.com/imbabyboy/babushkin-jam",
   "minimum_chrome_version": "111",
   "icons": {
     "16": "icons/icon16.png",

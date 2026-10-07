@@ -1,10 +1,11 @@
-# Порт 443 на VPS занят SoftEther VPN, поэтому HTTPS/WSS — на 8443.
+# Порт 443 на VPS занят VPN, поэтому HTTPS/WSS — на 8443.
 # Порт 80 нужен Let's Encrypt для проверки домена (HTTP-01).
+# {$JAM_DOMAIN} подставляет deploy.sh из переменной окружения.
 {
 	http_port 80
 	https_port 8443
 }
 
-141-11-197-57.sslip.io {
+{$JAM_DOMAIN} {
 	reverse_proxy yandex-jam:8787
 }

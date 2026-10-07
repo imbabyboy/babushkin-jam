@@ -1,0 +1,44 @@
+name: Баг
+description: Что-то работает не так
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось
+      description: Что вы делали, что ожидали и что произошло.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      placeholder: |
+        1. Создал комнату, друг вошёл по ссылке
+        2. Переключил трек
+        3. У друга ничего не включилось
+  - type: dropdown
+    id: role
+    attributes:
+      label: Кто вы в комнате
+      options:
+        - Ведущий
+        - Ведомый
+        - Не знаю
+  - type: input
+    id: version
+    attributes:
+      label: Версия расширения
+      description: chrome://extensions → babushkin-jam
+      placeholder: 0.3.0
+  - type: input
+    id: browser
+    attributes:
+      label: Браузер и ОС
+      placeholder: Chrome 129, macOS 15
+  - type: textarea
+    id: diag
+    attributes:
+      label: Диагностика
+      description: Попап расширения → «Скопировать диагностику» и вставьте сюда. Лучше с обоих участников.
+      render: json

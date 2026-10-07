@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Синтаксис JS
+        run: for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done
+
+      - name: manifest.json
+        run: |
+          node -e "
+            const m = JSON.parse(require('fs').readFileSync('extension/manifest.json'));
+            if (m.manifest_version !== 3) throw new Error('нужен Manifest V3');
+            for (const cs of m.content_scripts) for (const f of cs.js) require('fs').accessSync('extension/' + f);
+            console.log('babushkin-jam', m.version);
+          "
+
+      - name: Зависимости сервера
+        run: npm ci
+        working-directory: server
+
+      - name: Сервер запускается
+        working-directory: server
+        run: |
+          PORT=8787 node server.js &
+          for i in $(seq 1 20); do curl -fsS http://localhost:8787/ && break; sleep 0.5; done
+          curl -fsS http://localhost:8787/privacy | grep -q 'политика конфиденциальности'

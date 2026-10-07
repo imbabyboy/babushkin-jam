@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Версия тега совпадает с manifest.json
+        run: |
+          v=$(node -p "require('./extension/manifest.json').version")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "тег $GITHUB_REF_NAME, а в manifest.json $v"; exit 1; }
+
+      - name: Сборка zip
+        run: mkdir -p dist && cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'
+
+      - name: Заметки из CHANGELOG.md
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^(## )?\[/ {f=0} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "См. CHANGELOG.md" > notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: babushkin-jam ${{ github.ref_name }}
+          body_path: notes.md
+          files: dist/babushkin-jam.zip
