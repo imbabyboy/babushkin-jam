@@ -9,7 +9,7 @@ extension/            расширение Chrome (Manifest V3), без сбор
   manifest.json
   src/page.js         адаптер плеера: работает в контексте страницы, всё про устройство сайта — здесь
   src/shared.js       общие настройки и хелперы (глобальный YJam)
-  src/overlay.js      панель «🎧 Джем» в Shadow DOM, без логики
+  src/overlay.js      панель «Джем» в Shadow DOM, без логики
   src/content.js      логика джема: соединение, комната, защита от эха, подстройка плеера
   popup/              попап расширения
   fonts/              Golos Text и JetBrains Mono (woff2, кириллица + латиница, OFL)
