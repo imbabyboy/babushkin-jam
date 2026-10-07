@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 dist/
 .env
+# макеты из Claude Design — локально, в них адрес сервера
+babushkin-jam-ui-mockups/

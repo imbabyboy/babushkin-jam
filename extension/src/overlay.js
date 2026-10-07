@@ -406,8 +406,6 @@ var YJamOverlay = (() => {
         if (first && v.invite && v.invite !== v.room) open = true;
         render();
       },
-      collapse: () => setOpen(false),
-      resetName: () => { nameTouched = false; },
     };
   }
 
