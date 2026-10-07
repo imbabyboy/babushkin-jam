@@ -12,10 +12,13 @@ extension/            расширение Chrome (Manifest V3), без сбор
   src/overlay.js      панель «🎧 Джем» в Shadow DOM, без логики
   src/content.js      логика джема: соединение, комната, защита от эха, подстройка плеера
   popup/              попап расширения
+  fonts/              Golos Text и JetBrains Mono (woff2, кириллица + латиница, OFL)
 server/               сервер комнат: Node.js + ws, состояние только в памяти
 deploy/               Dockerfile, Caddyfile и скрипт деплоя
 store/                тексты и картинки для Chrome Web Store
 docs/                 документация
+assets/icons-prod/    красные иконки для магазина (в extension/icons — голубые для локальной версии)
+tools/build.sh        сборка zip для магазина
 tools/ym-probe.js     скрипт-разведка плеера для консоли браузера
 ```
 
@@ -34,13 +37,17 @@ popup.js ⇄ chrome.tabs.sendMessage ⇄ content.js
 cd server && npm install && npm run dev
 ```
 
-Расширение: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `extension/`. В попапе впишите сервер `ws://localhost:8787`. Для проверки синхронизации удобно взять два профиля Chrome.
+Расширение: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `extension/`. Это локальная версия: голубая иконка и имя «babushkin-jam (local)», чтобы не путать с версией из магазина (красная). Прод-сборку делает `sh tools/build.sh`. В попапе впишите сервер `ws://localhost:8787`. Для проверки синхронизации удобно взять два профиля Chrome.
 
 После правок нажмите ↻ у расширения и перезагрузите вкладку Яндекс Музыки (если меняли только попап — вкладку перезагружать не нужно).
 
 ## Ветки
 
 Основная ветка — `main`, напрямую в неё пушит только владелец. Новая работа — в ветке `yj-<название>` и через pull request. В VS Code для этого есть задачи (`Cmd+Shift+B`): «new branch», «checkout branch», «git commit and push» (коммит вида `yj-<название> | сообщение`).
+
+## Дизайн
+
+Попап и панель сделаны по макету из Claude Design (папка `babushkin-jam-ui-mockups/`, в репозиторий не входит). Тёмная тема, акцент `#FFDB4D`, шрифты `YJam Golos` / `YJam Mono` — их регистрирует `YJam.loadFonts()` из `shared.js` (через `FontFace`: `@font-face` внутри Shadow DOM панели не работает). Цвета аватаров — `YJam.avatarColor(i)` по месту участника в списке, одинаково в попапе и на панели.
 
 ## Правила
 

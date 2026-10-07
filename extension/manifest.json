@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "babushkin-jam",
-  "version": "0.3.0",
+  "name": "babushkin-jam (local)",
+  "version": "1.0.0",
   "description": "Неофициальное расширение: слушайте Яндекс Музыку вместе — общий трек, пауза и перемотка у всех в комнате.",
   "homepage_url": "https://github.com/imbabyboy/babushkin-jam",
   "minimum_chrome_version": "111",
@@ -21,7 +21,7 @@
     "https://*.music.yandex.kz/*"
   ],
   "action": {
-    "default_title": "babushkin-jam",
+    "default_title": "babushkin-jam (local)",
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -56,6 +56,19 @@
         "src/content.js"
       ],
       "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "fonts/*.woff2"
+      ],
+      "matches": [
+        "https://*.music.yandex.ru/*",
+        "https://*.music.yandex.com/*",
+        "https://*.music.yandex.by/*",
+        "https://*.music.yandex.kz/*"
+      ]
     }
   ]
 }

@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Синтаксис JS
-        run: for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done
+        run: for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done && sh -n tools/build.sh
 
       - name: manifest.json
         run: |
@@ -30,6 +30,14 @@ jobs:
             if (m.manifest_version !== 3) throw new Error('нужен Manifest V3');
             for (const cs of m.content_scripts) for (const f of cs.js) require('fs').accessSync('extension/' + f);
             console.log('babushkin-jam', m.version);
+          "
+
+      - name: Сборка zip для магазина
+        run: |
+          sh tools/build.sh
+          unzip -p dist/babushkin-jam.zip manifest.json | node -e "
+            const m = JSON.parse(require('fs').readFileSync(0));
+            if (m.name !== 'babushkin-jam') throw new Error('в zip имя ' + m.name);
           "
 
       - name: Зависимости сервера

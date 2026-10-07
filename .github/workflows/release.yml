@@ -19,7 +19,7 @@ jobs:
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "тег $GITHUB_REF_NAME, а в manifest.json $v"; exit 1; }
 
       - name: Сборка zip
-        run: mkdir -p dist && cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'
+        run: sh tools/build.sh
 
       - name: Заметки из CHANGELOG.md
         run: |

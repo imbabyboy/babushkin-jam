@@ -49,5 +49,43 @@ var YJam = (() => {
     return { serverUrl: s.serverUrl, name: s.name, room: s.room, ...patch };
   }
 
-  return { SERVER_URL, DEFAULTS, randomName, randomCode, normalizeCode, inviteLink, ensureSettings };
+  // ---------- оформление: общее для попапа и панели на сайте ----------
+
+  // Шрифты лежат в расширении (fonts/, лицензия OFL) — ни к каким CDN не ходим.
+  // Регистрируем через FontFace: @font-face внутри Shadow DOM панели не работает.
+  // Свои имена семейств, чтобы не пересечься со шрифтами сайта.
+  const CYRILLIC = 'U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116';
+  const LATIN = 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, ' +
+    'U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
+  const FONTS = [
+    ['YJam Golos', 'golos-cyrillic.woff2', '400 700', CYRILLIC],
+    ['YJam Golos', 'golos-latin.woff2', '400 700', LATIN],
+    ['YJam Mono', 'jbmono-cyrillic.woff2', '500 700', CYRILLIC],
+    ['YJam Mono', 'jbmono-latin.woff2', '500 700', LATIN],
+  ];
+
+  let fontsLoaded = false;
+  function loadFonts() {
+    if (fontsLoaded || typeof FontFace === 'undefined') return;
+    fontsLoaded = true;
+    for (const [family, file, weight, unicodeRange] of FONTS) {
+      try {
+        const url = chrome.runtime.getURL('fonts/' + file);
+        document.fonts.add(new FontFace(family, `url("${url}") format("woff2")`, { weight, unicodeRange }));
+      } catch (e) {}
+    }
+  }
+
+  // Цвет кружка участника — по его месту в списке комнаты, одинаково в попапе и на панели.
+  const AVATAR_COLORS = ['#FFDB4D', '#8FD3FF', '#B9F28C', '#FFB38A', '#D9B8FF', '#FF9EC4', '#9EF0E0'];
+  const avatarColor = (i) => AVATAR_COLORS[i % AVATAR_COLORS.length];
+  const initial = (name) => (Array.from(String(name || '?').trim())[0] || '?').toUpperCase();
+
+  // Локальная сборка (папка extension/) называется «babushkin-jam (local)», в магазине — без приписки.
+  const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
+
+  return {
+    SERVER_URL, DEFAULTS, randomName, randomCode, normalizeCode, inviteLink, ensureSettings,
+    loadFonts, avatarColor, initial, IS_LOCAL,
+  };
 })();

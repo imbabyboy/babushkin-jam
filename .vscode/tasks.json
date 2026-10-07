@@ -24,9 +24,9 @@
     },
     {
       "label": "Расширение: собрать zip",
-      "detail": "dist/babushkin-jam.zip — для Chrome Web Store и друзей",
+      "detail": "dist/babushkin-jam.zip — прод (красная иконка) для Chrome Web Store и друзей",
       "type": "shell",
-      "command": "mkdir -p dist && rm -f dist/babushkin-jam.zip && cd extension && zip -r ../dist/babushkin-jam.zip . -x '.*'",
+      "command": "sh tools/build.sh",
       "problemMatcher": [],
       "group": { "kind": "build", "isDefault": true }
     },
