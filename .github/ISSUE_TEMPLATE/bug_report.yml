@@ -30,7 +30,7 @@ body:
     attributes:
       label: Версия расширения
       description: chrome://extensions → babushkin-jam
-      placeholder: 1.0.0
+      placeholder: 1.1.0
   - type: input
     id: browser
     attributes:

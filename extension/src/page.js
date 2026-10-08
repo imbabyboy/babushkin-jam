@@ -324,7 +324,14 @@
 
   // Смена трека: ждём, пока определится id (до 2.5 с), и только потом сообщаем.
   let lastKey = null;
+  let emittedKey = null; // последний трек, о котором сообщили content.js
   let settleTimer = null;
+  // Трек в плеере уже сменился, а событие 'track' ещё не отправлено.
+  function trackPending() {
+    const key = metaKey(readMeta());
+    return key !== null && key !== emittedKey;
+  }
+
   function checkTrack() {
     const key = metaKey(readMeta());
     if (key === lastKey) return;
@@ -336,6 +343,7 @@
       if (lastKey !== key) return;
       const t = currentTrack();
       if (t && !t.id && Date.now() - started < 2500) { settleTimer = setTimeout(settle, 250); return; }
+      emittedKey = key;
       emit('track', { track: t, ...snapshot() });
     };
     settleTimer = setTimeout(settle, 400);
@@ -547,6 +555,7 @@
         ok: true,
         track,
         next: nextTrack(track && track.id),
+        trackPending: trackPending(),
         ...snapshot(),
         hasMedia: !!activeMedia(),
       };
