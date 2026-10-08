@@ -141,6 +141,17 @@
         "kind": "build",
         "isDefault": true
       }
+    },
+    {
+      "label": "release tag",
+      "detail": "main + pull, тег v<версия> и пуш тега — GitHub Actions соберёт релиз",
+      "type": "shell",
+      "command": "git checkout main && git pull origin main && V=\"${input:releaseVersion}\" && V=${V#v} && M=$(node -p \"require('./extension/manifest.json').version\") && if [ \"$V\" != \"$M\" ]; then echo \"Версия $V не совпадает с manifest.json в main ($M) — тег не поставлен\"; exit 1; fi && git tag v$V && git push origin v$V && echo \"Тег v$V отправлен: https://github.com/imbabyboy/babushkin-jam/actions\"",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ],
   "inputs": [
@@ -154,6 +165,12 @@
       "id": "branchName",
       "type": "promptString",
       "description": "Название ветки без префикса yj-",
+      "default": ""
+    },
+    {
+      "id": "releaseVersion",
+      "type": "promptString",
+      "description": "Версия релиза, например 1.1.0",
       "default": ""
     }
   ]
