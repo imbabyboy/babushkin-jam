@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-10-08
+
+### Исправлено
+- Ведомый не мог переключить трек: проверка синхронизации успевала вернуть трек комнаты раньше, чем расширение сообщало о смене трека. Теперь, пока смена трека не отправлена на сервер и не вернулась от него, трек комнаты не включается. Пауза старого трека в момент переключения тоже больше не ставит комнату на паузу.
+
 ### Изменено
 - Документация (README, решение проблем, поддержка, шаблон баг-репорта, тексты для магазина) приведена к новому интерфейсу: плашка «Джем», синхронизация и диагностика под гаечным ключом.
 
@@ -37,6 +42,7 @@
 - Сервер комнат на Node.js + `ws`, деплой в Docker с Caddy; адрес VPS и домен задаются через `JAM_HOST` и `JAM_DOMAIN`.
 - Документация в `docs/`, CI и сборка релиза в GitHub Actions.
 
-[Unreleased]: https://github.com/imbabyboy/babushkin-jam/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/imbabyboy/babushkin-jam/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/imbabyboy/babushkin-jam/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/imbabyboy/babushkin-jam/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/imbabyboy/babushkin-jam/releases/tag/v0.3.0

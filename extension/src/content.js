@@ -10,6 +10,7 @@
   const ECHO_MS = 1500;           // сколько живёт ожидание своего события
   const SWITCH_MS = 90000;        // предел на включение трека (с перелистыванием альбома)
   const SETTLE_MS = 1500;         // после смены трека события паузы/перемотки — не от человека
+  const OWN_TRACK_MS = 5000;      // сколько ждём от сервера трек, который включили сами
   const MAX_SWITCH_ATTEMPTS = 3;
 
   let settings = { ...DEFAULTS };
@@ -183,6 +184,7 @@
     if (!m.cause || !['pos', 'queue'].includes(m.cause.type)) lastChangeAt = lastStateAt;
     render();
     const mine = m.cause && m.cause.by === clientId;
+    if (mine && m.cause.type === 'track') ownTrackUntil = 0;
     if (mine && m.cause.type === 'join') {
       // Один в комнате (например, после перезагрузки) — комната подстраивается под нас,
       // а не наоборот: не включаем трек, оставшийся с прошлой сессии.
@@ -201,6 +203,7 @@
   // ---------- события плеера (от человека или нет) ----------
   let lastEndedAt = 0;
   let settleUntil = 0;
+  let ownTrackUntil = 0;          // отправили свой трек, ждём его от сервера
   let playPauseTimer = null;
   let seekTimer = null;
 
@@ -240,6 +243,7 @@
     }
 
     // человек переключил трек -> становится ведущим
+    ownTrackUntil = Date.now() + OWN_TRACK_MS;
     send({ t: 'track', track: ev.track, position: ev.position, paused: ev.paused });
   }
 
@@ -251,7 +255,7 @@
     playPauseTimer = setTimeout(async () => {
       if (Date.now() < settleUntil || Date.now() - lastEndedAt < 1000) return;
       const s = await pageCall('state');
-      if (!s.ok || !sameTrack(s.track, room && room.track)) return;
+      if (!s.ok || s.trackPending || !sameTrack(s.track, room && room.track)) return;
       if (s.paused === room.paused) return;
       send({ t: 'pause', paused: s.paused, position: s.position });
     }, 300);
@@ -285,6 +289,10 @@
       const exp = expectedPosition(room);
 
       if (!sameTrack(s.track, target)) {
+        // Плеер только что сменил трек, а событие от page.js ещё не пришло, или мы уже
+        // отправили свой трек и ждём его от сервера. Скорее всего, трек включил человек:
+        // не возвращаем трек комнаты, иначе ведомый не может ничего переключить.
+        if (s.trackPending || Date.now() < ownTrackUntil) return;
         // трек комнаты вот-вот кончится — ждём следующий от ведущего, а не включаем старый
         if (target.duration && exp > target.duration - 3) return;
         if (!target.id) {
