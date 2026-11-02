@@ -18,6 +18,9 @@
   // Плеер может создавать Audio без вставки в DOM, поэтому ловим через play().
   const media = new Set();
   let current = null; // элемент, который играл последним
+  // played — плеер уже играл на этой странице. До первого плея сам сайт (звук он разблокирует
+  // в своём обработчике клика) не включается ни через mediaSession, ни через audio.play().
+  let played = false;
 
   // Сайт проигрывает беззвучный data:audio/mp3, чтобы разблокировать звук, — это не плеер.
   const isSilent = (el) => /^data:/.test(el.currentSrc || el.src || '');
@@ -28,6 +31,7 @@
     el.addEventListener('play', () => {
       if (isSilent(el)) return;
       current = el;
+      played = true;
       emit('play', snapshot());
     });
     el.addEventListener('pause', () => { if (el === current) emit('pause', snapshot()); });
@@ -367,6 +371,15 @@
     return null;
   }
 
+  // кнопка «плей» в панели плеера (не пауза: подпись у неё другая)
+  function findBarPlayButton() {
+    for (const b of document.querySelectorAll('button, [role="button"]')) {
+      const label = (b.getAttribute('aria-label') || b.textContent || '').trim();
+      if (PLAY_LABEL.test(label) && visible(b) && inPlayerBar(b)) return b;
+    }
+    return null;
+  }
+
   async function waitFor(fn, ms) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
@@ -556,6 +569,7 @@
         track,
         next: nextTrack(track && track.id),
         trackPending: trackPending(),
+        played,
         ...snapshot(),
         hasMedia: !!activeMedia(),
       };
@@ -578,6 +592,12 @@
       if (handlers.play) { handlers.play({ action: 'play' }); via = 'mediaSession'; }
       else if (api() && api().togglePause) { if (!api().isPlaying()) api().togglePause(); via = 'externalAPI'; }
       await sleep(400);
+      // до первого плея на странице — жмём кнопку плей в панели плеера, как человек
+      if (!played) {
+        const b = findBarPlayButton();
+        if (b) { b.click(); via += '+button'; await sleep(800); }
+        if (played) return { ok: true, via };
+      }
       if (el && el.paused) {
         try { await origPlay.call(el); via += '+audio'; }
         catch (e) {
