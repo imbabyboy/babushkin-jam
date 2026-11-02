@@ -138,14 +138,19 @@
     }
   }
 
-  // Обходим любой JSON и берём всё, что похоже на трек: { id, title, artists: [...] }.
+  // { id, title, artists } есть и у альбома. У трека ещё есть albums или id вида «трек:альбом».
+  // Альбом в справочнике нельзя: у сингла то же название, что у трека, и в комнату уйдёт id альбома.
+  const looksLikeTrack = (v) => (typeof v.id === 'string' || typeof v.id === 'number') &&
+    typeof v.title === 'string' && Array.isArray(v.artists) &&
+    (Array.isArray(v.albums) || String(v.id).includes(':'));
+
+  // Обходим любой JSON и берём всё, что похоже на трек.
   function indexTracks(json) {
     let budget = 50000;
     const walk = (v, depth) => {
       if (!v || typeof v !== 'object' || depth > 12 || --budget < 0) return;
       if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
-      if ((typeof v.id === 'string' || typeof v.id === 'number') &&
-          typeof v.title === 'string' && Array.isArray(v.artists)) rememberTrack(v);
+      if (looksLikeTrack(v)) rememberTrack(v);
       for (const k in v) walk(v[k], depth + 1);
     };
     walk(json, 0);
