@@ -27,6 +27,7 @@
   let backoff = 1000;
   let warning = '';
   let autoplayBlocked = false;
+  let player = { hasTrack: false, paused: true }; // для кнопок плеера в виджете
 
   // ---------- мост к page.js ----------
   let seq = 0;
@@ -181,7 +182,7 @@
     version = m.state.version;
     room = m.state;
     lastStateAt = Date.now();
-    if (!m.cause || !['pos', 'queue'].includes(m.cause.type)) lastChangeAt = lastStateAt;
+    if (!m.cause || !['pos', 'queue', 'rename'].includes(m.cause.type)) lastChangeAt = lastStateAt;
     render();
     const mine = m.cause && m.cause.by === clientId;
     if (mine && m.cause.type === 'track') ownTrackUntil = 0;
@@ -208,6 +209,11 @@
   let seekTimer = null;
 
   function onPlayerEvent(ev) {
+    if (ev.type === 'track' || ev.type === 'play' || ev.type === 'pause') {
+      const next = { hasTrack: player.hasTrack || !!ev.track, paused: ev.type === 'track' ? !!ev.paused : ev.type === 'pause' };
+      if (next.hasTrack !== player.hasTrack || next.paused !== player.paused) { player = next; render(); }
+      if (ev.type === 'play' && (autoplayBlocked || !played)) { autoplayBlocked = false; played = true; render(); }
+    }
     switch (ev.type) {
       case 'ended':
         lastEndedAt = Date.now();
@@ -223,7 +229,8 @@
         onSeek();
         break;
       case 'autoplay-blocked':
-        if (room) { autoplayBlocked = true; render(); }
+        // в комнате — всегда, вне комнаты — только если плей нажали наши кнопки
+        if (room || Date.now() - controlPlayAt < 3000) { autoplayBlocked = true; render(); }
         break;
     }
   }
@@ -361,6 +368,21 @@
   // ведомый подстраивает рассинхрон
   setInterval(() => { if (room && !isLeader()) resync(); }, FOLLOW_CHECK_MS);
 
+  // ---------- кнопки плеера (виджет, попап) ----------
+  // Жмём как человек: события плеера уйдут в комнату обычным путём —
+  // пауза у всех, а смена трека делает нажавшего ведущим.
+  let controlPlayAt = 0;
+  async function control(action) {
+    if (action === 'toggle') {
+      const s = await pageCall('state');
+      if (!s.ok || !s.paused) return pageCall('pause');
+      controlPlayAt = Date.now();
+      return pageCall('play');
+    }
+    if (action === 'next' || action === 'prev') return pageCall(action);
+    return { ok: false };
+  }
+
   // ---------- панель на странице ----------
   // Приглашение: ссылка вида music.yandex.ru/?jam=КОД открывает панель с кнопкой «Войти».
   const invite = YJam.normalizeCode(new URLSearchParams(location.search).get('jam')) || null;
@@ -379,12 +401,31 @@
     async rename(name) {
       await chrome.storage.local.set({ name });
     },
-    unblock() {
-      autoplayBlocked = false;
-      render();
-      resync();
-    },
+    unblock,
+    control,
   });
+
+  // Chrome не даёт включить звук, пока на странице Яндекс Музыки ни разу не кликнули
+  // (после открытия или перезагрузки вкладки). Кнопки попапа и виджета на другом сайте
+  // таким кликом не считаются. Поэтому первый же клик или клавиша на странице снимает
+  // блокировку и включает то, что не включилось.
+  // played — плеер уже играл на этой странице. До этого Яндекс Музыка не включается ничем,
+  // кроме плея на ней самой: в попапе и в виджете на другом сайте вместо «плей» — «открыть вкладку».
+  let played = false;
+  function unblock() {
+    if (!autoplayBlocked) return;
+    autoplayBlocked = false;
+    render();
+    // клик мог прийти в кнопку плеера на сайте — сначала даём ему отработать
+    setTimeout(async () => {
+      if (room) return resync();
+      const s = await pageCall('state');
+      if (s.ok && s.paused) pageCall('play');
+    }, 400);
+  }
+  for (const type of ['pointerdown', 'keydown']) {
+    window.addEventListener(type, (e) => { if (e.isTrusted) unblock(); }, true);
+  }
 
   function render() {
     if (!settingsLoaded) return;
@@ -402,6 +443,8 @@
       expectedPosition: room ? expectedPosition(room) : 0,
       warning,
       autoplayBlocked,
+      canPlay: played,
+      controls: player.hasTrack ? { paused: player.paused } : null,
       clockOffset: Math.round(clockOffset),
       rtt: Number.isFinite(bestRtt) ? bestRtt : null,
     };
@@ -413,7 +456,12 @@
       return true;
     }
     if (msg.type === 'yjam:diag') {
-      pageCall('diag').then((d) => reply({ ...d, jam: status() }));
+      Promise.all([pageCall('diag'), chrome.storage.local.get({ returnTo: null, widgetHidden: false, widgetEverywhere: false })])
+        .then(([d, widget]) => reply({ ...d, jam: status(), widget }));
+      return true;
+    }
+    if (msg.type === 'yjam:control') {
+      control(msg.action).then(reply);
       return true;
     }
     if (msg.type === 'yjam:resync') {
@@ -431,6 +479,10 @@
     settingsLoaded = true;
     connect();
   });
+  pageCall('state').then((s) => {
+    if (s.ok && s.played) played = true;
+    if (s.ok && s.track) { player = { hasTrack: true, paused: s.paused }; render(); }
+  });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
@@ -438,8 +490,9 @@
     for (const k of Object.keys(DEFAULTS)) {
       if (!changes[k]) continue;
       settings[k] = changes[k].newValue || '';
-      // новое имя применится при следующем входе: переподключение отняло бы роль ведущего
-      if (k !== 'name' || !settings.room) reconnect = true;
+      // имя в комнате меняем сообщением: переподключение отняло бы роль ведущего
+      if (k === 'name' && settings.room) { if (settings.name) send({ t: 'rename', name: settings.name }); }
+      else reconnect = true;
     }
     if (reconnect) connect(); else render();
   });

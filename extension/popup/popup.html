@@ -14,9 +14,19 @@
       <div class="status"><span id="room-dot" class="dot"></span><span id="role"></span></div>
       <div id="room-code" class="room-code"></div>
     </div>
-    <button id="tools" class="icon-btn" title="Инструменты" aria-haspopup="menu" aria-expanded="false">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
-    </button>
+    <div id="head-settings" class="title" hidden>Настройки</div>
+    <div class="head-btns">
+      <button id="widget" class="icon-btn" title="Показать виджет">
+        <svg class="icon-shown" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="icon-hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+      </button>
+      <button id="settings-btn" class="icon-btn" title="Настройки" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button id="tools" class="icon-btn" title="Инструменты" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
+      </button>
+    </div>
   </header>
 
   <div id="menu" class="menu" role="menu" hidden>
@@ -88,12 +98,42 @@
     </section>
 
     <div id="now" class="now" hidden>
-      <svg id="now-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
       <span id="now-text"></span>
+      <div class="ctrls">
+        <button class="ctrl" data-action="prev" title="Предыдущий трек">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="2.6" height="14" rx="1"/><path d="M19 5.8v12.4a.8.8 0 0 1-1.2.7L9 12.7a.8.8 0 0 1 0-1.4l8.8-6.2a.8.8 0 0 1 1.2.7z"/></svg>
+        </button>
+        <button id="toggle" class="ctrl toggle" data-action="toggle" title="Пауза">
+          <svg id="now-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+        </button>
+        <button class="ctrl" data-action="next" title="Следующий трек">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="16.4" y="5" width="2.6" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z"/></svg>
+        </button>
+      </div>
+      <div class="now-sep"></div>
+      <button id="pip" class="pip tip" aria-pressed="false" data-tip="Показывать на всех сайтах" aria-label="Показывать виджет на всех сайтах">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="6" height="5" rx="1" class="pip-inner"/></svg>
+      </button>
     </div>
 
     <div id="warning" class="warning" hidden></div>
     <button id="leave" class="btn-outline">Выйти из комнаты</button>
+  </main>
+
+  <main id="settings" class="stack" hidden>
+    <div class="field">
+      <span class="label">Ваше имя</span>
+      <div id="s-name" class="name-row"></div>
+    </div>
+    <div class="field">
+      <span class="label">Где показывать виджет</span>
+      <div class="seg" role="radiogroup">
+        <button id="w-ym" role="radio" aria-checked="true">На Яндекс Музыке</button>
+        <button id="w-all" role="radio" aria-checked="false">На всех сайтах</button>
+      </div>
+      <div id="w-hint" class="hint"></div>
+    </div>
+    <button id="settings-done" class="btn-outline">Готово</button>
   </main>
 
   <script src="../src/shared.js"></script>

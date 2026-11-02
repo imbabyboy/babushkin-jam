@@ -1,12 +1,23 @@
-// Общее для content-скриптов и попапа: настройки по умолчанию, случайное имя, код комнаты.
+// Общее для content-скриптов, попапа и фонового скрипта: настройки по умолчанию, случайное имя, код комнаты.
 // Подключается раньше остальных скриптов и объявляет глобальный YJam.
 
 var YJam = (() => {
-  const SERVER_URL = 'wss://141-11-197-57.sslip.io:8443';
-  const OLD_DEFAULT_SERVER = 'ws://localhost:8787';
-  const SETTINGS_VERSION = 2;
+  const SERVER_URL = 'wss://141-11-197-134.sslip.io:9443';
+  const OLD_LOCAL_SERVER = 'ws://localhost:8787'; // умолчание до настроек версии 2
+  const OLD_PROD_SERVER = 'wss://141-11-197-57.sslip.io:8443'; // умолчание до настроек версии 3, тот VPS удалён
+  const SETTINGS_VERSION = 3;
 
   const DEFAULTS = { serverUrl: SERVER_URL, name: '', room: '' };
+
+  // Вкладки Яндекс Музыки — дублирует matches в manifest.json, при добавлении домена править оба места.
+  const YM_URLS = [
+    'https://*.music.yandex.ru/*',
+    'https://*.music.yandex.com/*',
+    'https://*.music.yandex.by/*',
+    'https://*.music.yandex.kz/*',
+  ];
+  // «Виджет на всех сайтах» — необязательное разрешение (optional_host_permissions в manifest.json).
+  const ALL_SITES = ['https://*/*', 'http://*/*'];
 
   const ANIMALS = [
     'Суслик', 'Волк', 'Ёж', 'Енот', 'Барсук', 'Лис', 'Бобр', 'Хомяк', 'Сурок', 'Тюлень',
@@ -36,12 +47,15 @@ var YJam = (() => {
   }
 
   // Дозаполняет настройки: случайное имя, сервер по умолчанию.
-  // Старый адрес localhost из прошлых версий один раз меняется на общий сервер.
+  // Старые адреса по умолчанию один раз меняются на общий сервер. Адрес, вписанный вручную, не трогаем:
+  // localhost, вписанный уже после версии 2, остаётся.
   async function ensureSettings() {
     const s = await chrome.storage.local.get({ ...DEFAULTS, settingsVersion: 0 });
     const patch = {};
     if (!s.name) patch.name = randomName();
-    if (!s.serverUrl || (s.settingsVersion < SETTINGS_VERSION && s.serverUrl === OLD_DEFAULT_SERVER)) {
+    const stale = (s.settingsVersion < 2 && s.serverUrl === OLD_LOCAL_SERVER)
+      || (s.settingsVersion < 3 && s.serverUrl === OLD_PROD_SERVER);
+    if (!s.serverUrl || stale) {
       patch.serverUrl = SERVER_URL;
     }
     if (s.settingsVersion !== SETTINGS_VERSION) patch.settingsVersion = SETTINGS_VERSION;
@@ -85,7 +99,7 @@ var YJam = (() => {
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {
-    SERVER_URL, DEFAULTS, randomName, randomCode, normalizeCode, inviteLink, ensureSettings,
+    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, ensureSettings,
     loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

@@ -1,7 +1,8 @@
 // Панель джема поверх сайта (макет «Babushkin Jam UI», состояния 1e/1f): пилюля «Джем» с участниками
 // и раскрывающаяся панель — комната, лобби (создать / войти по коду) или приглашение.
 // Стили изолированы в Shadow DOM, чтобы сайт и панель не ломали друг друга.
-// Логики комнаты здесь нет: панель показывает то, что передал content.js, и зовёт его actions.
+// Логики комнаты здесь нет: панель показывает то, что передал content.js (на других сайтах — remote.js),
+// и зовёт его actions. В свёрнутом виде — пилюля с кнопками плеера; тянется мышкой, крестиком убирается.
 
 var YJamOverlay = (() => {
   const CSS = `
@@ -22,17 +23,41 @@ var YJamOverlay = (() => {
     input { font: inherit; }
     svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 
-    /* ---------- пилюля ---------- */
+    /* ---------- пилюля: «Джем» + участники, кнопки плеера, крестик; тянется мышкой ---------- */
     .pill {
-      height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px;
+      height: 36px; display: flex; align-items: center; gap: 2px; padding: 0 4px;
       background: #2A2A2A; border: 1px solid #3A3A3A; border-radius: 18px;
       box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 13px; font-weight: 600; white-space: nowrap;
+      cursor: grab; user-select: none; touch-action: none;
     }
-    .pill:hover { background: #313131; }
-    .pill.solo { padding-right: 14px; }
+    .pill.dragging { cursor: grabbing; }
+    .pill-main {
+      height: 28px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 8px; border-radius: 14px;
+    }
+    .pill-main:hover { background: #333; }
+    .pill-main.solo { padding-right: 10px; }
     .pill .phones { width: 15px; height: 15px; stroke: var(--accent); stroke-width: 2.2; flex: none; }
-    .pill.alert { background: var(--accent); border-color: var(--accent); color: #121212; padding-right: 14px; }
+    .pill.alert { background: var(--accent); border-color: var(--accent); color: #121212; }
+    .pill.alert .pill-main:hover { background: rgba(0,0,0,.08); }
     .pill.alert .phones { stroke: #121212; }
+    .ctrls { display: flex; align-items: center; }
+    .ctrl {
+      width: 28px; height: 28px; border-radius: 50%; flex: none;
+      display: flex; align-items: center; justify-content: center; color: var(--soft);
+    }
+    .ctrl:hover { background: #3A3A3A; color: var(--fg); }
+    .ctrl.open svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+    .ctrl svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
+    .ctrl.toggle svg { width: 15px; height: 15px; }
+    .vsep { width: 1px; height: 16px; background: #3A3A3A; margin: 0 2px; flex: none; }
+    .hide {
+      width: 24px; height: 24px; border-radius: 50%; flex: none;
+      display: flex; align-items: center; justify-content: center; color: var(--muted2);
+    }
+    .hide:hover { background: #3A3A3A; color: var(--fg); }
+    .pill.alert .hide { color: #121212; }
+    .pill.alert .hide:hover { background: rgba(0,0,0,.1); }
+    .hide svg { width: 11px; height: 11px; stroke-width: 2.4; }
     .chip {
       display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 4px;
       background: var(--bg); border-radius: 14px; font-size: 12.5px; font-weight: 400; color: var(--soft);
@@ -111,6 +136,23 @@ var YJamOverlay = (() => {
     .you { flex: none; font-size: 12px; color: var(--muted2); }
     .host { flex: none; display: flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
     .host svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+    .edit {
+      flex: none; align-self: center; width: 22px; height: 22px; border-radius: 6px; opacity: 0;
+      display: flex; align-items: center; justify-content: center; color: var(--muted2);
+    }
+    .member:hover .edit, .edit:focus-visible { opacity: 1; }
+    .edit:hover { background: var(--line); color: var(--fg); }
+    .edit svg { width: 13px; height: 13px; stroke-width: 2; }
+    .rename { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; }
+    .rename .input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border-radius: 7px; font-size: 14px; }
+    .rename .input:focus { padding: 0 7.5px; }
+    .rename-btn {
+      flex: none; width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center; color: var(--muted2);
+    }
+    .rename-btn:hover { background: var(--line); color: var(--fg); }
+    .rename-btn.ok { color: var(--accent); }
+    .rename-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
     .alone { font-size: 12px; line-height: 1.45; color: var(--muted); padding-top: 4px; }
     .people { display: flex; flex-direction: column; gap: 2px; }
 
@@ -120,6 +162,17 @@ var YJamOverlay = (() => {
     .status { font-size: 12.5px; color: var(--muted); }
 
     .invite-text { display: flex; flex-direction: column; gap: 2px; }
+    /* «Назад на <сайт>» — под виджетом на Яндекс Музыке, если сюда пришли кнопкой с другого сайта */
+    .back {
+      position: absolute; top: calc(100% + 8px); height: 30px; max-width: 280px;
+      display: flex; align-items: center; gap: 7px; padding: 0 12px 0 10px;
+      background: #2A2A2A; border: 1px solid #3A3A3A; border-radius: 15px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      color: var(--soft); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+    }
+    .back:hover { background: #333; color: var(--fg); }
+    .back.up { top: auto; bottom: calc(100% + 8px); }
+    .back svg { width: 14px; height: 14px; stroke-width: 2.2; flex: none; }
+    .back span { overflow: hidden; text-overflow: ellipsis; }
     .warn { padding: 8px 10px; border-radius: 10px; background: #3A2A10; color: #FFCF8A; font-size: 12.5px; line-height: 1.4; }
   `;
 
@@ -127,6 +180,14 @@ var YJamOverlay = (() => {
   const ICON_PAUSE = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
   const ICON_PLAY = '<path d="M7 5l12 7-12 7z"/>';
   const ICON_CROWN = '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>';
+  const ICON_EDIT = '<path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z"/><path d="M14 8l2 2"/>';
+  const ICON_CHECK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+  const ICON_CLOSE = '<path d="M6 6l12 12M18 6L6 18"/>';
+  const ICON_BACK = '<path d="M19 12H5M11 6l-6 6 6 6"/>';
+  const ICON_DOWN = '<path d="M6 9l6 6 6-6"/>';
+  const ICON_PREV = '<rect x="5" y="5" width="2.6" height="14" rx="1"/><path d="M19 5.8v12.4a.8.8 0 0 1-1.2.7L9 12.7a.8.8 0 0 1 0-1.4l8.8-6.2a.8.8 0 0 1 1.2.7z"/>';
+  const ICON_OPEN = '<path d="M14 5h5v5"/><path d="M19 5l-8 8"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>';
+  const ICON_NEXT = '<rect x="16.4" y="5" width="2.6" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z"/>';
   const svg = (markup, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${markup}</svg>`;
 
   const HTML = `
@@ -137,7 +198,7 @@ var YJamOverlay = (() => {
           <div data-el="head-lobby" class="head-left">
             ${svg(PHONES, 'phones')}<span class="title">babushkin-jam</span><span data-el="badge" class="badge" hidden>local</span>
           </div>
-          <button class="close" title="Свернуть">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+          <button class="close" title="Свернуть">${svg(ICON_DOWN)}</button>
         </div>
 
         <div data-el="invite" class="section" hidden>
@@ -174,7 +235,7 @@ var YJamOverlay = (() => {
           <div class="share">
             <button data-el="copy" class="btn-primary copy">
               ${svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', 'icon-copy')}
-              ${svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'icon-done')}
+              ${svg(ICON_CHECK, 'icon-done')}
               <span data-el="copy-label">Скопировать ссылку</span>
             </button>
             <div data-el="invite-link" class="invite-link"></div>
@@ -185,11 +246,17 @@ var YJamOverlay = (() => {
 
         <div data-el="warn" class="warn" hidden></div>
       </div>
-      <button class="pill"></button>
+      <div class="pill"></div>
+      <button data-el="back" class="back" hidden>${svg(ICON_BACK)}<span data-el="back-text"></span></button>
     </div>
   `;
 
-  function create(actions) {
+  // Виджет по умолчанию — справа снизу, левее регулятора громкости Яндекс Музыки.
+  const DEFAULT_POS = { h: 'right', x: 116, v: 'bottom', y: 96 };
+
+  // opts.remote — виджет на другом сайте (remote.js): показывается, только если в настройках
+  // включено «на всех сайтах».
+  function create(rawActions, opts = {}) {
     YJam.loadFonts();
 
     const host = document.createElement('div');
@@ -197,27 +264,179 @@ var YJamOverlay = (() => {
     const root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>${CSS}</style>${HTML}`;
     const $ = (name) => root.querySelector(`[data-el="${name}"]`);
+    const wrap = root.querySelector('.wrap');
     const panel = root.querySelector('.panel');
     const pill = root.querySelector('.pill');
     $('badge').hidden = !YJam.IS_LOCAL;
+
+    // После обновления или перезагрузки расширения старый скрипт на странице живёт дальше, но любой
+    // вызов chrome.* в нём бросает «Extension context invalidated». Все вызовы — через ext():
+    // расширения больше нет — убираем виджет и молчим.
+    let dead = false;
+    function ext(fn) {
+      if (!dead) {
+        try {
+          if (chrome.runtime && chrome.runtime.id) {
+            const p = fn();
+            if (p && p.catch) p.catch(() => {});
+            return;
+          }
+        } catch (e) {}
+      }
+      dead = true;
+      host.remove();
+    }
+    // действия content.js / remote.js тоже ходят в chrome.* — через ext()
+    const actions = {};
+    for (const k of Object.keys(rawActions)) actions[k] = (...args) => ext(() => rawActions[k](...args));
+
+    // ---------- видимость и положение (общие для всех вкладок, в chrome.storage.local) ----------
+    const UI_DEFAULTS = { widgetHidden: false, widgetPos: null, widgetEverywhere: false, returnTo: null };
+    let ui = { ...UI_DEFAULTS };
+
+    function applyVisibility() {
+      const off = ui.widgetHidden || (opts.remote && !ui.widgetEverywhere);
+      if (off) host.style.setProperty('display', 'none', 'important');
+      else host.style.removeProperty('display');
+    }
+
+    // Положение — от ближайших краёв окна: так виджет остаётся на месте при смене размера окна.
+    // Панель раскрывается в сторону середины экрана.
+    function applyPos(p = ui.widgetPos || DEFAULT_POS) {
+      const maxX = Math.max(0, innerWidth - pill.offsetWidth);
+      const maxY = Math.max(0, innerHeight - pill.offsetHeight);
+      const x = Math.min(Math.max(0, p.x), maxX);
+      const y = Math.min(Math.max(0, p.y), maxY);
+      wrap.style.left = p.h === 'left' ? x + 'px' : 'auto';
+      wrap.style.right = p.h === 'right' ? x + 'px' : 'auto';
+      wrap.style.top = p.v === 'top' ? y + 'px' : 'auto';
+      wrap.style.bottom = p.v === 'bottom' ? y + 'px' : 'auto';
+      wrap.style.flexDirection = p.v === 'bottom' ? 'column' : 'column-reverse';
+      wrap.style.alignItems = p.h === 'right' ? 'flex-end' : 'flex-start';
+      // «Назад» — под виджетом, у того же края; не влезает снизу — над ним
+      const back = $('back');
+      back.style.left = p.h === 'left' ? '0' : 'auto';
+      back.style.right = p.h === 'right' ? '0' : 'auto';
+      back.classList.toggle('up', p.v === 'bottom' ? y < 44 : y + wrap.offsetHeight + 44 > innerHeight);
+    }
+
+    function renderBack() {
+      const r = !opts.remote && ui.returnTo;
+      $('back').hidden = !r;
+      if (r) $('back-text').textContent = r.host ? 'Назад на ' + r.host : 'Назад';
+    }
+    $('back').onclick = () => ext(() => chrome.runtime.sendMessage({ type: 'yjam:back' }));
+
+    // ключи — по UI_DEFAULTS: get может не вернуть ключ с умолчанием null, и тогда его изменения терялись бы
+    const loadUi = () => ext(() => chrome.storage.local.get(UI_DEFAULTS).then((s) => {
+      ui = { ...UI_DEFAULTS, ...s };
+      applyVisibility();
+      applyPos();
+      renderBack();
+    }));
+    loadUi();
+    // «Назад» записывают прямо перед переключением на эту вкладку — перечитываем, когда её показали
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadUi(); });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
+      for (const k of Object.keys(UI_DEFAULTS)) if (changes[k]) ui[k] = changes[k].newValue ?? UI_DEFAULTS[k];
+      applyVisibility();
+      renderBack();
+      if (changes.widgetPos && !drag) applyPos();
+    });
+    addEventListener('resize', () => applyPos());
+
+    // ---------- перетаскивание за пилюлю ----------
+    let drag = null;
+    let dragged = false; // после перетаскивания клик по пилюле не раскрывает панель
+
+    pill.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('button:not(.pill-main)')) return;
+      const r = pill.getBoundingClientRect();
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false, pos: null };
+    });
+    pill.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved) {
+        if (Math.hypot(dx, dy) < 4) return;
+        drag.moved = true;
+        try { pill.setPointerCapture(drag.id); } catch (err) {}
+        pill.classList.add('dragging');
+      }
+      const w = pill.offsetWidth;
+      const h = pill.offsetHeight;
+      const left = Math.min(Math.max(0, drag.left + dx), innerWidth - w);
+      const top = Math.min(Math.max(0, drag.top + dy), innerHeight - h);
+      const right = left + w / 2 > innerWidth / 2;
+      const bottom = top + h / 2 > innerHeight / 2;
+      drag.pos = {
+        h: right ? 'right' : 'left', x: Math.round(right ? innerWidth - left - w : left),
+        v: bottom ? 'bottom' : 'top', y: Math.round(bottom ? innerHeight - top - h : top),
+      };
+      applyPos(drag.pos);
+    });
+    const endDrag = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag;
+      drag = null;
+      pill.classList.remove('dragging');
+      if (!d.moved) return;
+      dragged = true;
+      setTimeout(() => { dragged = false; }, 0);
+      ui.widgetPos = d.pos;
+      ext(() => chrome.storage.local.set({ widgetPos: d.pos }));
+    };
+    pill.addEventListener('pointerup', endDrag);
+    pill.addEventListener('pointercancel', endDrag);
 
     let open = false;
     let view = null;
     let inviteDismissed = false;
     let nameTouched = false;
+    let renaming = false; // своё имя в списке участников открыто для правки
 
     const nameValue = () => $('name').value.trim();
 
     function setOpen(v) {
       open = v;
       if (!v && view && view.invite) inviteDismissed = true;
+      if (!v) renaming = false;
       render();
     }
 
-    pill.onclick = () => {
-      if (view && view.autoplayBlocked) { actions.unblock(); return; }
-      setOpen(!open);
-    };
+    function startRename() {
+      renaming = true;
+      renderMembers(view);
+      $('rename').focus();
+      $('rename').select();
+    }
+
+    function finishRename(save) {
+      if (!renaming) return;
+      const input = $('rename');
+      const name = input.value.trim();
+      renaming = false;
+      if (save && name && name !== input.defaultValue) actions.rename(name);
+      renderMembers(view);
+    }
+
+    // Клики по пилюле — одним обработчиком: её содержимое перерисовывается.
+    pill.addEventListener('click', (e) => {
+      if (dragged) return;
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.action === 'open') actions.unblock();
+      else if (b.dataset.action) actions.control(b.dataset.action);
+      else if (b.classList.contains('hide')) {
+        // крестик убирает виджет совсем: и здесь, и на всех сайтах
+        setOpen(false);
+        ext(() => chrome.storage.local.set({ widgetHidden: true, widgetEverywhere: false }));
+      }
+      else if (view && view.autoplayBlocked) actions.unblock();
+      else setOpen(!open);
+    });
     root.querySelector('.close').onclick = () => setOpen(false);
     $('name').oninput = () => { nameTouched = true; };
     $('name').onchange = () => { if (nameValue()) actions.rename(nameValue()); };
@@ -242,7 +461,13 @@ var YJamOverlay = (() => {
         const input = typing(e);
         if (!input) return;
         e.stopImmediatePropagation();
-        if (type !== 'keydown' || e.key !== 'Enter' || e.isComposing) return;
+        if (type !== 'keydown' || e.isComposing) return;
+        if (input === $('rename')) {
+          if (e.key === 'Enter') finishRename(true);
+          else if (e.key === 'Escape') finishRename(false);
+          return;
+        }
+        if (e.key !== 'Enter') return;
         if (input === $('code')) $('join').click();
         else input.blur(); // имя сохранится по change
       }, true);
@@ -292,40 +517,101 @@ var YJamOverlay = (() => {
     function renderPill(v, showInvite) {
       const members = connected(v) ? v.state.members : [];
       const key = JSON.stringify([v.autoplayBlocked, v.room, showInvite, v.conn, !!v.state,
-        members.map((m) => m.name), !!v.warning]);
+        members.map((m) => m.name), !!v.warning, v.controls, v.remote && v.canPlay, open]);
       if (key === pillKey) return;
       pillKey = key;
 
+      const main = el('button', 'pill-main');
+      main.innerHTML = svg(PHONES, 'phones');
+      const hide = el('button', 'hide');
+      hide.title = 'Убрать виджет (вернуть — в меню расширения)';
+      hide.innerHTML = svg(ICON_CLOSE);
+
       pill.className = 'pill';
-      pill.innerHTML = svg(PHONES, 'phones');
+      pill.replaceChildren(main);
       if (v.autoplayBlocked) {
         pill.classList.add('alert');
-        pill.append('Нажмите, чтобы включить звук');
+        main.classList.add('solo');
+        main.title = 'Chrome не включает звук, пока на странице Яндекс Музыки ни разу не кликнули';
+        main.append(v.remote ? 'Включите звук во вкладке Яндекс Музыки' : 'Нажмите, чтобы включить звук');
+        pill.append(hide);
         return;
       }
+
+      main.title = open ? 'Свернуть' : 'Открыть джем';
       if (!v.room) {
-        pill.classList.add('solo');
-        pill.append(showInvite ? 'Вас позвали в джем' : 'Джем');
-        return;
+        main.classList.add('solo');
+        main.append(showInvite ? 'Вас позвали в джем' : 'Джем');
+      } else {
+        main.append('Джем');
+        if (!connected(v)) {
+          const text = v.conn === 'notab' ? 'нет вкладки' : v.conn === 'connecting' ? 'подключаюсь…' : 'нет связи';
+          main.append(el('span', 'chip text', text));
+        } else {
+          const chip = el('span', 'chip');
+          const stack = el('span', 'stack');
+          members.slice(0, 3).forEach((m, i) => stack.appendChild(avatar(m, i)));
+          chip.append(stack, String(members.length));
+          if (v.warning) chip.appendChild(el('span', 'attn'));
+          main.appendChild(chip);
+        }
       }
-      pill.append('Джем');
-      if (!connected(v)) {
-        pill.append(el('span', 'chip text', v.conn === 'connecting' ? 'подключаюсь…' : 'нет связи'));
-        return;
+
+      // кнопки плеера — когда есть что играть (на другом сайте — если открыта вкладка Яндекс Музыки)
+      if (v.controls) {
+        const ctrls = el('div', 'ctrls');
+        const button = (action, title, icon, cls = '') => {
+          const b = el('button', 'ctrl' + cls);
+          b.dataset.action = action;
+          b.title = title;
+          b.innerHTML = svg(icon);
+          return b;
+        };
+        const toggle = button('toggle', v.controls.paused ? 'Играть' : 'Пауза', v.controls.paused ? ICON_PLAY : ICON_PAUSE, ' toggle');
+        // на другом сайте звук не включить, пока по вкладке Яндекс Музыки не кликнули (на ней самой клик по кнопке и есть такой клик)
+        // на другом сайте плей не сработает, пока его ни разу не нажали на самой Яндекс Музыке —
+        // вместо него кнопка «перейти во вкладку»
+        const play = v.remote && v.controls.paused && v.canPlay === false
+          ? button('open', 'Открыть Яндекс Музыку: первый раз включите плей там', ICON_OPEN, ' open')
+          : toggle;
+        ctrls.append(button('prev', 'Предыдущий трек', ICON_PREV), play, button('next', 'Следующий трек', ICON_NEXT));
+        pill.append(el('span', 'vsep'), ctrls);
       }
-      const chip = el('span', 'chip');
-      const stack = el('span', 'stack');
-      members.slice(0, 3).forEach((m, i) => stack.appendChild(avatar(m, i)));
-      chip.append(stack, String(members.length));
-      if (v.warning) chip.appendChild(el('span', 'attn'));
-      pill.appendChild(chip);
+      pill.append(el('span', 'vsep'), hide);
+      if (!drag) applyPos(); // ширина пилюли поменялась — не вылезти за край окна
+    }
+
+    function iconButton(cls, title, icon, onclick) {
+      const b = el('button', cls);
+      b.title = title;
+      b.innerHTML = svg(icon);
+      b.onclick = onclick;
+      return b;
     }
 
     function memberRow(m, i, v) {
       const li = el('li', 'member');
+      const self = m.id === v.clientId;
+      if (self && renaming) {
+        const input = el('input', 'input');
+        input.dataset.el = 'rename';
+        input.maxLength = 40;
+        input.autocomplete = 'off';
+        input.placeholder = 'Гость';
+        input.defaultValue = m.name;
+        const form = el('div', 'rename');
+        form.append(input,
+          iconButton('rename-btn ok', 'Сохранить', ICON_CHECK, () => finishRename(true)),
+          iconButton('rename-btn', 'Отмена', ICON_CLOSE, () => finishRename(false)));
+        li.append(avatar(m, i), form);
+        return li;
+      }
       const name = el('div', 'member-name');
       name.appendChild(el('span', '', m.name));
-      if (m.id === v.clientId) name.appendChild(el('span', 'you', 'вы'));
+      if (self) {
+        name.appendChild(el('span', 'you', 'вы'));
+        name.appendChild(iconButton('edit', 'Изменить имя', ICON_EDIT, startRename));
+      }
       li.append(avatar(m, i), name);
       if (m.id === v.state.leaderId) {
         const h = el('div', 'host');
@@ -336,17 +622,24 @@ var YJamOverlay = (() => {
       return li;
     }
 
+    function renderMembers(v) {
+      const members = connected(v) ? v.state.members : [];
+      $('members').replaceChildren(...members.map((m, i) => memberRow(m, i, v)));
+      $('alone').hidden = members.length !== 1;
+    }
+
     function renderRoom(v) {
       $('room-code').textContent = v.room;
       $('invite-link').textContent = YJam.inviteLink(v.room).replace(/^https:\/\//, '');
       const st = connected(v) ? v.state : null;
 
       $('status').hidden = !!st;
-      $('status').textContent = v.conn === 'connecting' ? 'Подключаюсь…' : 'Нет связи с сервером, переподключаюсь…';
+      $('status').textContent = v.conn === 'notab' ? 'Джем работает во вкладке Яндекс Музыки — откройте её.'
+        : v.conn === 'connecting' ? 'Подключаюсь…' : 'Нет связи с сервером, переподключаюсь…';
 
-      const members = st ? st.members : [];
-      $('members').replaceChildren(...members.map((m, i) => memberRow(m, i, v)));
-      $('alone').hidden = members.length !== 1;
+      // пока правим имя, список не перерисовываем — иначе поле пропадёт из-под курсора
+      if (!st) renaming = false;
+      if (!renaming) renderMembers(v);
 
       const t = st && st.track;
       $('now').hidden = !st;
@@ -381,6 +674,7 @@ var YJamOverlay = (() => {
       $('head-room').hidden = !v.room || showInvite;
       $('head-lobby').hidden = !!v.room && !showInvite;
       if (v.room && !showInvite) renderRoom(v);
+      else renaming = false;
 
       $('warn').hidden = !v.warning;
       $('warn').textContent = v.warning || '';
@@ -390,9 +684,9 @@ var YJamOverlay = (() => {
     // до того, как React закончит гидратацию, сайт ловит React error #418.
     let mountScheduled = false;
     function mount() {
-      if (host.isConnected || mountScheduled) return;
+      if (dead || host.isConnected || mountScheduled) return;
       mountScheduled = true;
-      const attach = () => setTimeout(() => document.body.appendChild(host), 1500);
+      const attach = () => setTimeout(() => { if (!dead) { document.body.appendChild(host); applyPos(); } }, opts.remote ? 0 : 1500);
       if (document.readyState === 'complete') attach();
       else window.addEventListener('load', attach, { once: true });
     }
@@ -405,6 +699,10 @@ var YJamOverlay = (() => {
         // приглашение — сразу раскрываем панель, чтобы осталось нажать «Войти»
         if (first && v.invite && v.invite !== v.room) open = true;
         render();
+      },
+      remove() {
+        dead = true;
+        host.remove();
       },
     };
   }

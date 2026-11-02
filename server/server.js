@@ -1,7 +1,8 @@
 // Сервер комнат для джема. Хранит всё в памяти.
 // Состояние комнаты: ведущий, трек, позиция, пауза, время обновления, очередь, версия.
 // Правила (см. доку): сменил трек вручную -> стал ведущим; пауза/перемотка от любого,
-// ведущий не меняется; авто-переход на следующий трек принимается только от ведущего.
+// ведущий не меняется; авто-переход на следующий трек принимается только от ведущего;
+// имя участник может сменить в любой момент.
 
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -191,6 +192,16 @@ function handle(client, m) {
       room.queue = m.queue.slice(0, 200).map(cleanTrack).filter(Boolean);
       bump(room, 'queue', client.id);
       return;
+
+    case 'rename': {
+      // смена имени не выходя из комнаты; роль ведущего не меняется
+      const name = str(m.name, 40).trim();
+      if (!name || name === client.name) return;
+      client.name = name;
+      room.members.get(client.id).name = name;
+      bump(room, 'rename', client.id);
+      return;
+    }
   }
 }
 

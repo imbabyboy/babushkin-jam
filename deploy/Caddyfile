@@ -1,9 +1,9 @@
-# Порт 443 на VPS занят VPN, поэтому HTTPS/WSS — на 8443.
+# Порт 443 на VPS занят VPN, поэтому HTTPS/WSS — на отдельном порту (JAM_HTTPS_PORT, по умолчанию 8443).
 # Порт 80 нужен Let's Encrypt для проверки домена (HTTP-01).
-# {$JAM_DOMAIN} подставляет deploy.sh из переменной окружения.
+# {$JAM_DOMAIN} и {$JAM_HTTPS_PORT} подставляет deploy.sh из переменных окружения.
 {
 	http_port 80
-	https_port 8443
+	https_port {$JAM_HTTPS_PORT}
 }
 
 {$JAM_DOMAIN} {
