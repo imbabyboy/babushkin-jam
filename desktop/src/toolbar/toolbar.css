@@ -1,0 +1,56 @@
+/* Панель над Яндекс Музыкой. Заодно заголовок окна: за неё окно можно двигать. */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; overflow: hidden; background: #1C1C1C; }
+
+/* Страница занимает всё окно, но видна только полоса над Музыкой (TOOLBAR_HEIGHT в main.js). */
+body {
+  height: 44px;
+  display: flex; align-items: center; gap: 12px; padding: 0 10px;
+  color: #F2F2F2; font: 13px/1 "YJam Golos", system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-bottom: 1px solid #2A2A2A;
+  user-select: none; -webkit-app-region: drag;
+}
+body.mac { padding-left: 84px; }
+body.win { padding-right: 150px; }
+
+.brand { font-weight: 700; white-space: nowrap; }
+
+/* Кнопка «Джем» — как пилюля виджета в extension/src/overlay.js, но по высоте как соседние кнопки панели */
+.jam {
+  height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 3px 0 9px; flex: none;
+  background: #2A2A2A; border: 1px solid #3A3A3A; border-radius: 14px;
+  color: #F2F2F2; font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.jam:hover, .jam[aria-expanded="true"] { background: #333; }
+.jam:has(.jam-room:empty) { padding-right: 11px; }
+.phones { width: 14px; height: 14px; flex: none; fill: none; stroke: #FFDB4D; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.jam-room { display: flex; }
+.jam-room:empty { display: none; }
+.chip {
+  display: flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px 0 2px;
+  background: #1C1C1C; border-radius: 10px; font-size: 12px; font-weight: 400; color: #C9C9C9;
+}
+.chip.text { padding: 0 8px; }
+.stack { display: flex; }
+.avatar {
+  width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex: none;
+  border: 2px solid #1C1C1C; border-radius: 50%; color: #121212; font-size: 9px; font-weight: 700;
+}
+.avatar + .avatar { margin-left: -6px; }
+.attn { width: 6px; height: 6px; border-radius: 50%; background: #FFB38A; flex: none; }
+
+.actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.btn {
+  height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: #2E2E2E; color: #F2F2F2; font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.btn:hover { background: #383838; }
+.btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn svg .solid { fill: currentColor; stroke: none; }
+.btn.primary { background: #FFDB4D; color: #121212; }
+.btn.primary:hover { background: #FFE680; }

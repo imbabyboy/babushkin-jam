@@ -4,3 +4,5 @@ dist/
 .env
 # макеты из Claude Design — локально, в них адрес сервера
 babushkin-jam-ui-mockups/
+# приложение: generated/ собирается из extension/
+desktop/generated/

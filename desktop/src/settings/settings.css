@@ -1,0 +1,24 @@
+/* Дополнение к стилям попапа. Виджета в приложении нет, поэтому нет и кнопок для него. */
+#widget, #pip, .now-sep, .field:has(#w-ym) { display: none; }
+
+/* Настройки живут внутри окна: ширину задаёт оно, а если не хватает высоты, они прокручиваются. */
+html { background: var(--bg); overflow-y: auto; }
+body { width: auto; }
+
+/* Граница с тем, что вокруг: с плеером — линия, поверх Музыки — рамка. */
+html[data-placement="below"] body { box-shadow: inset 0 1px 0 var(--line); }
+html[data-placement="above"] body { box-shadow: inset 0 -1px 0 var(--line); }
+html[data-placement="popover"] body { box-shadow: inset 0 0 0 1px var(--field-line); border-radius: 12px; }
+
+.app-section { gap: 14px; }
+
+.stack-seg { display: flex; flex-direction: column; height: auto; }
+.stack-seg button { flex: none; min-height: 34px; }
+
+.check { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--soft); cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+
+.keys { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: 12.5px; }
+.keys[hidden] { display: none; }
+.keys dt { color: var(--muted); }
+.keys dd { margin: 0; font-family: var(--mono); color: var(--soft); }

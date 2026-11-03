@@ -58,6 +58,13 @@
     return list.find((m) => !m.paused) || list.find((m) => m.currentSrc) || null;
   }
 
+  // Сайт уже сбросил аудио и грузит следующий файл, а название в mediaSession ещё старое:
+  // позиция и пауза в этот момент относятся не к тому треку, который показан.
+  function audioLoading() {
+    const el = activeMedia();
+    return !!el && el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA;
+  }
+
   function snapshot() {
     const el = activeMedia();
     if (!el) return { position: 0, duration: 0, paused: true };
@@ -563,7 +570,100 @@
     return found;
   }
 
-  // ---------- 6. Команды ----------
+  // ---------- 6. Очередь ----------
+  // Гипотеза по коду сайта на 3 ноября: плеер лежит в контексте React, его компоненты берут оттуда
+  // state.queueState. entityList — треки, order — порядок игры (позиция -> номер в entityList),
+  // index — текущая позиция. setEntityByIndex принимает номер в entityList и включает трек даже с паузы.
+  // Записи с типом unloaded сайт догружает сам, но название у них обычно уже есть.
+  const QUEUE_BEFORE = 100; // длинный плейлист: столько треков до текущего
+  const QUEUE_AFTER = 400;  // и столько после, чтобы не гонять тысячи строк раз в пару секунд
+  const NOT_A_TRACK = /^(clip|radio)$/i;
+  let sitePlayer = null;
+
+  const isSitePlayer = (o) => {
+    try {
+      return !!o && typeof o === 'object' && !!o.playbackController &&
+        typeof o.setEntityByIndex === 'function' && !!o.state.queueState.entityList;
+    } catch (e) { return false; }
+  };
+
+  function findSitePlayer() {
+    if (sitePlayer) return sitePlayer;
+    for (const b of document.querySelectorAll('button')) {
+      const key = Object.keys(b).find((k) => k.startsWith('__reactFiber'));
+      if (!key) continue;
+      for (let f = b[key], i = 0; f && i < 300; f = f.return, i++) {
+        for (let c = f.dependencies && f.dependencies.firstContext; c; c = c.next) {
+          if (isSitePlayer(c.memoizedValue)) return (sitePlayer = c.memoizedValue);
+        }
+      }
+    }
+    return null;
+  }
+
+  function queueRow(item, index) {
+    const entity = item && item.entity;
+    const data = entity && entity.data;
+    if (!data || entity.hidden || NOT_A_TRACK.test(data.type)) return null;
+    const meta = data.meta || {};
+    if (meta.id == null) return null;
+    const id = String(meta.id);
+    const seen = known.get(id);
+    const title = meta.title || (seen && seen.title);
+    if (!title) return null; // такую строку нечем подписать, сайт её тоже не показывает
+    const album = Array.isArray(meta.albums) && meta.albums[0];
+    const cover = meta.coverUri || '';
+    return {
+      index,
+      id,
+      albumId: album && album.id != null ? String(album.id) : (seen && seen.albumId) || null,
+      title,
+      version: meta.version || '',
+      // у сборников один и тот же артист бывает указан дважды
+      artist: Array.isArray(meta.artists)
+        ? [...new Set(meta.artists.map((a) => a && a.name).filter(Boolean))].join(', ')
+        : (seen && seen.artist) || '',
+      cover: !cover ? '' : /^https?:/.test(cover) ? cover : 'https://' + cover.replace('%%', '100x100'),
+      duration: meta.durationMs ? meta.durationMs / 1000 : (seen && seen.duration) || 0,
+    };
+  }
+
+  function readQueue() {
+    const player = findSitePlayer();
+    if (!player) return { ok: false, error: 'не нашёл плеер сайта' };
+    const state = player.state.queueState;
+    const list = state.entityList.value || [];
+    const order = (state.order.value && state.order.value.length) ? state.order.value : list.map((_, i) => i);
+    const position = Number.isInteger(state.index.value) ? state.index.value : -1;
+    const from = Math.max(0, position - QUEUE_BEFORE);
+    const to = Math.min(order.length, Math.max(position, 0) + QUEUE_AFTER + 1);
+    const tracks = [];
+    let current = -1;
+    for (let at = from; at < to; at++) {
+      const row = queueRow(list[order[at]], order[at]);
+      if (!row) continue;
+      if (at === position) current = tracks.length;
+      tracks.push(row);
+    }
+    return { ok: true, tracks, current, total: list.length };
+  }
+
+  // Список мог измениться, пока на него смотрели: сверяем трек, а не только номер.
+  function playFromQueue({ index, id }) {
+    const player = findSitePlayer();
+    if (!player) return { ok: false, error: 'не нашёл плеер сайта' };
+    const state = player.state.queueState;
+    const item = (state.entityList.value || [])[index];
+    const meta = item && item.entity && item.entity.data && item.entity.data.meta;
+    if (!meta || String(meta.id) !== String(id)) return { ok: false, stale: true, error: 'очередь изменилась' };
+    const now = state.currentEntity.value;
+    // Повторный вызов на текущем треке начал бы его сначала.
+    if (now && now.entity === item.entity) return snapshot().paused ? commands.play() : { ok: true, via: 'already' };
+    Promise.resolve(player.setEntityByIndex(index)).catch(() => {});
+    return { ok: true, via: 'setEntityByIndex' };
+  }
+
+  // ---------- 7. Команды ----------
   const api = () => window.externalAPI;
 
   const commands = {
@@ -574,6 +674,7 @@
         track,
         next: nextTrack(track && track.id),
         trackPending: trackPending(),
+        loading: audioLoading(),
         played,
         ...snapshot(),
         hasMedia: !!activeMedia(),
@@ -638,6 +739,9 @@
 
     playTrack,
 
+    queue: readQueue,
+    queuePlay: playFromQueue,
+
     diag() {
       const ext = api();
       const md = navigator.mediaSession && navigator.mediaSession.metadata;
@@ -670,6 +774,10 @@
           fileInfo: idsFromFileInfo(meta),
         } : null,
         tracksIndexed: known.size,
+        queue: (() => {
+          const q = readQueue();
+          return q.ok ? { rows: q.tracks.length, current: q.current, total: q.total } : q.error;
+        })(),
         fileInfo: fileInfo.slice(-10).map((f) => (f.batch ? 'batch ' : 'single ') + f.id),
         playerLinks: [...document.querySelectorAll('a[href*="/track/"]')]
           .filter(inPlayerBar)
@@ -708,6 +816,7 @@
     seek: (s) => commands.seek({ position: s }),
     next: () => commands.next(),
     prev: () => commands.prev(),
+    queue: () => commands.queue(),
     playTrack: (id, albumId) => playTrack({ id, albumId }),
   };
 })();

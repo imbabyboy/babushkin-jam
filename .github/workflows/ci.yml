@@ -21,7 +21,10 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Синтаксис JS
-        run: for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done && sh -n tools/build.sh
+        run: |
+          node desktop/scripts/bundle.js
+          for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js desktop/src/*.js desktop/src/mini/*.js desktop/src/toolbar/*.js desktop/src/settings/*.js desktop/scripts/*.js desktop/generated/*.js desktop/generated/settings/*.js; do node --check "$f"; done
+          sh -n tools/build.sh
 
       - name: manifest.json
         run: |

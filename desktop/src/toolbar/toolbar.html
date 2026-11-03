@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; script-src 'self'; style-src 'self'; font-src yjam-asset:">
+  <title>babushkin-jam</title>
+  <link rel="stylesheet" href="toolbar.css">
+</head>
+<body>
+  <div class="brand">babushkin-jam</div>
+  <button id="jam" class="jam" aria-expanded="false" title="Джем">
+    <svg class="phones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>
+    <span>Джем</span>
+    <span id="jam-room" class="jam-room"></span>
+  </button>
+  <div class="actions">
+    <button id="tray" class="btn">
+      <svg viewBox="0 0 24 24"><path d="M6 18h12"/></svg>
+      <span>В трей</span>
+    </button>
+    <button id="mini" class="btn primary">
+      <svg viewBox="0 0 24 24"><path d="M13 5v6h6M11 19v-6H5M20 4l-7 7M4 20l7-7"/></svg>
+      <span>Свернуть в плеер</span>
+    </button>
+  </div>
+  <script src="../mini/chrome-alias.js"></script>
+  <script src="../../generated/shared.js"></script>
+  <script src="toolbar.js"></script>
+</body>
+</html>
