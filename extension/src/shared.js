@@ -42,6 +42,19 @@ var YJam = (() => {
 
   const normalizeCode = (code) => String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 
+  // Сервис ссылок на песню. Своего домена пока нет, он отвечает на том же адресе, что и сервер комнат.
+  const LINKS_URL = SERVER_URL.replace(/^wss:/, 'https:') + '/links/';
+
+  function songPageUrl({ artist, title, album, duration, id, albumId }) {
+    const params = new URLSearchParams();
+    if (artist) params.set('singer', artist);
+    if (title) params.set('songname', title);
+    if (album) params.set('album', album);
+    if (duration > 0) params.set('duration', String(Math.round(duration)));
+    if (/^\d+$/.test(id)) params.set('ym', /^\d+$/.test(albumId) ? `${albumId}/${id}` : id);
+    return LINKS_URL + '?' + params;
+  }
+
   function inviteLink(code) {
     return `https://music.yandex.ru/?jam=${encodeURIComponent(code)}`;
   }
@@ -99,7 +112,7 @@ var YJam = (() => {
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {
-    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, ensureSettings,
+    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, ensureSettings,
     loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

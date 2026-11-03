@@ -1,0 +1,37 @@
+// Эталонный набор. У каждого запроса свой ответ: какая песня считается верной. null — верной ссылки быть не должно.
+const t = (singer, songname, title = songname, artist = singer) => ({ params: { singer, songname }, title, artist });
+const a = (singer, album, title = album, artist = singer) => ({ params: { singer, album }, title, artist, kind: 'album' });
+
+export const GOLDEN = [
+  t('The Beatles', 'Hey Jude'),
+  t('Eminem', 'Without Me'),
+  t('Eminem', 'Lose Yourself'),
+  t('Daft Punk', 'One More Time'),
+  t('Queen', 'Bohemian Rhapsody'),
+  t('Nirvana', 'Smells Like Teen Spirit'),
+  t('Radiohead', 'Creep'),
+  t('Kendrick Lamar', 'HUMBLE.', 'HUMBLE'),
+  t('Billie Eilish', 'bad guy'),
+  t('The Weeknd', 'Blinding Lights'),
+  t('CeeLo Green', 'Fuck You', 'Fuck You', 'Cee'),
+  t('Rihanna', 'Umbrella'),
+  t('Cardi B', 'WAP'),
+  t('Dr. Dre', 'Still D.R.E.', 'Still D', 'Dr'),
+  t('Drake', "God's Plan", 'God'),
+  t('Кино', 'Группа крови', 'Группа крови', 'Кино|Kino'),
+  t('kizaru', 'trooper'),
+  t('Земфира', 'Искала', 'Искала', 'Земфира|Zemfira'),
+  t('Скриптонит', 'Положение', 'Положение', 'Скриптонит|Scriptonite'),
+  t('Монеточка', 'Каждый раз', 'Каждый раз', 'Монеточка|Monetochka'),
+  t('Oxxxymiron', 'Где нас нет', 'Где нас нет', 'Oxxxymiron|Оксимирон'),
+  t('Ленинград', 'Экспонат', 'Экспонат', 'Ленинград|Leningrad'),
+  t('Баста', 'Сансара', 'Сансара', 'Баста|Basta'),
+  t('Би-2', 'Полковнику никто не пишет', 'Полковнику', 'Би-2|Bi-2'),
+  a('Eminem', 'The Eminem Show'),
+  a('Pink Floyd', 'The Dark Side of the Moon'),
+  a('Кино', 'Звезда по имени Солнце', 'Звезда по имени Солнце', 'Кино|Kino'),
+  { params: { singer: 'Radiohead' }, title: 'Radiohead', artist: 'Radiohead', kind: 'artist' },
+  { params: { q: 'daft punk one more time' }, title: 'One More Time', artist: 'Daft Punk' },
+  { params: { singer: 'Queen', songname: 'Несуществующая песня 12345' }, title: null },
+  { params: { singer: 'zzqxv qwpfj', songname: 'kjhgf dsazx' }, title: null },
+];

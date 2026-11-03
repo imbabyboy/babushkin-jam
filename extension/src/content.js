@@ -299,7 +299,8 @@
     try {
       const target = room.track;
       const s = await pageCall('state');
-      if (!s.ok) return;
+      // Пока ждали ответ плеера, могли выйти из комнаты или потерять связь.
+      if (!s.ok || !room) return;
       const exp = expectedPosition(room);
 
       if (!sameTrack(s.track, target)) {
@@ -338,10 +339,12 @@
       if (warning) setWarning('');
       if (s.loading || Date.now() < localActionUntil) return;
 
-      if (s.paused !== room.paused) {
-        expect(room.paused ? 'pause' : 'play');
-        const r = await pageCall(room.paused ? 'pause' : 'play');
-        if (!room.paused && r.ok) { autoplayBlocked = false; render(); }
+      const wantPaused = room.paused;
+      if (s.paused !== wantPaused) {
+        expect(wantPaused ? 'pause' : 'play');
+        const r = await pageCall(wantPaused ? 'pause' : 'play');
+        if (!room) return; // вышли из комнаты: перематывать уже незачем
+        if (!wantPaused && r.ok) { autoplayBlocked = false; render(); }
       }
       if (Math.abs(exp - s.position) > DRIFT_SEC) {
         expect('seek', ECHO_MS, true);
@@ -480,7 +483,14 @@
     // Как «следующий трек»: смена уйдёт в комнату обычным путём и сделает нажавшего ведущим.
     if (msg.type === 'yjam:queue-play') {
       noteLocalAction();
-      pageCall('queuePlay', { index: msg.index, id: msg.id }).then(reply);
+      // Страница трека открывается не сразу. Пока идёт переход, подстройка не должна вернуть трек комнаты:
+      // её playTrack отменил бы нажатие. После ответа оставляем обычный короткий запас, иначе вход
+      // в комнату сразу после клика надолго оставил бы нас без подстройки.
+      ownTrackUntil = Date.now() + SWITCH_MS;
+      pageCall('queuePlay', { index: msg.index, id: msg.id, albumId: msg.albumId }, SWITCH_MS).then((r) => {
+        ownTrackUntil = r.ok && r.switching ? Date.now() + OWN_TRACK_MS : 0;
+        reply(r);
+      });
       return true;
     }
     if (msg.type === 'yjam:resync') {

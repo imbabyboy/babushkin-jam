@@ -6,10 +6,13 @@
   const QUEUE_REFRESH_MS = 1500;
   const QUEUE_SCROLL_PAUSE_MS = 4000; // сколько не трогаем список после прокрутки рукой
   const COPIED_MS = 1200;
+  const QUEUE_MAX_ROWS = 1000; // дальше забываем самые старые песни
+  const SITE_ICON = '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M11 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg>';
   const COPY_ICONS = '<svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>'
     + '<svg class="done-icon" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const $ = (id) => document.getElementById(id);
   let openPanel = null; // 'jam', 'queue' или ничего
+  let lastTrackId = null;
   let current = null;
   let duration = 0;
   let pressedUntil = 0;
@@ -126,7 +129,13 @@
   function render(data) {
     current = data;
     const { page, status } = data;
-    renderTrack(status && status.player && status.player.ok ? status.player : null, page);
+    const player = status && status.player && status.player.ok ? status.player : null;
+    renderTrack(player, page);
+    const trackId = player && player.track && player.track.id;
+    if (trackId && trackId !== lastTrackId) {
+      lastTrackId = trackId;
+      refreshQueue();
+    }
     renderNotice(page, status);
     renderJam(status);
     fitWindow();
@@ -194,6 +203,11 @@
   let queueTimer = null;
   let queueKey = null;
   let queueBusy = false;
+  let queueAgain = false;
+  let queueTracks = [];
+  let queueCurrentId = null;
+  let queueShownCurrent = null;
+  let queueFailed = false;
   let scrollToCurrent = false;
   let scrolledAt = 0;
   let programScroll = false;
@@ -201,9 +215,22 @@
   const trackLink = ({ id, albumId }) =>
     'https://music.yandex.ru' + (albumId ? `/album/${albumId}/track/${id}` : `/track/${id}`);
 
+  function siteButton(track) {
+    const button = document.createElement('button');
+    button.className = 'queue-action queue-site';
+    button.title = 'Уйти на сайт: ссылки на эту песню в других сервисах';
+    button.setAttribute('aria-label', 'Уйти на сайт');
+    button.innerHTML = SITE_ICON;
+    button.onclick = (e) => {
+      e.stopPropagation(); // клик по строке включил бы трек
+      desktop.openSongPage(track);
+    };
+    return button;
+  }
+
   function copyButton(track) {
     const button = document.createElement('button');
-    button.className = 'queue-copy';
+    button.className = 'queue-action queue-copy';
     button.title = 'Скопировать ссылку на трек';
     button.setAttribute('aria-label', 'Скопировать ссылку на трек');
     button.innerHTML = COPY_ICONS;
@@ -224,7 +251,7 @@
     li.className = 'queue-item';
     li.classList.toggle('current', isCurrent);
     li.onclick = async () => {
-      await desktop.playFromQueue(track.index, track.id);
+      await desktop.playFromQueue(track.index, track.id, track.albumId);
       refreshQueue();
     };
 
@@ -260,47 +287,72 @@
     time.textContent = track.duration ? formatTime(track.duration) : '';
 
     button.append(cover, text);
-    li.append(button, copyButton(track), time);
+    li.append(button, copyButton(track), siteButton(track), time);
     return li;
   }
 
-  function renderQueue(queue) {
-    const tracks = queue && queue.ok ? queue.tracks : [];
-    // Список перестраиваем, только когда он изменился: иначе сбрасывались бы наведение и прокрутка.
-    const key = JSON.stringify([queue && queue.ok, tracks.map((t) => t.index + ':' + t.id), queue && queue.current]);
-    if (key === queueKey) return;
-    const currentChanged = !queueKey || JSON.parse(queueKey)[2] !== (queue && queue.current);
-    queueKey = key;
+  // Сайт знает только текущий альбом или плейлист. Поэтому сверху остаётся всё, что было раньше,
+  // а под ним идёт очередь сайта в её настоящем порядке: она учитывает и новые треки, и случайный порядок.
+  function mergeQueue(queue) {
+    if (!queue || !queue.ok) {
+      queueFailed = !queueTracks.length && !!queue;
+      return;
+    }
+    queueFailed = false;
+    const live = new Set(queue.tracks.map((t) => t.id));
+    const earlier = queueTracks.filter((t) => !live.has(t.id));
+    queueTracks = [...earlier.slice(-Math.max(0, QUEUE_MAX_ROWS - queue.tracks.length)), ...queue.tracks];
+    const now = queue.tracks[queue.current];
+    if (now) queueCurrentId = now.id;
+    else if (lastTrackId) queueCurrentId = lastTrackId;
+  }
 
-    $('queue-empty').hidden = tracks.length > 0;
-    $('queue-empty').textContent = queue && !queue.ok
+  function renderQueue() {
+    // Список перестраиваем, только когда он изменился: иначе сбрасывались бы наведение и прокрутка.
+    const key = JSON.stringify([queueFailed, queueTracks.map((t) => t.index + ':' + t.id), queueCurrentId]);
+    if (key === queueKey) return;
+    const currentChanged = queueShownCurrent !== queueCurrentId;
+    queueKey = key;
+    queueShownCurrent = queueCurrentId;
+
+    $('queue-empty').hidden = queueTracks.length > 0;
+    $('queue-empty').textContent = queueFailed
       ? 'Не получилось прочитать список у сайта'
       : 'Плейлист появится, когда включите музыку';
 
     const list = $('queue-list');
     const top = list.scrollTop;
-    list.replaceChildren(...tracks.map((t, i) => queueRow(t, i === queue.current)));
+    const currentAt = queueTracks.findIndex((t) => t.id === queueCurrentId);
+    list.replaceChildren(...queueTracks.map((t, i) => queueRow(t, i === currentAt)));
     fitWindow();
 
     const handsOff = Date.now() - scrolledAt < QUEUE_SCROLL_PAUSE_MS;
-    const row = list.children[queue && queue.current];
+    const row = list.children[currentAt];
     programScroll = true;
     list.scrollTop = top;
     if (row && (scrollToCurrent || (currentChanged && !handsOff))) {
       list.scrollTop = row.offsetTop - list.offsetTop - (list.clientHeight - row.offsetHeight) / 2;
     }
-    if (tracks.length) scrollToCurrent = false;
+    if (queueTracks.length) scrollToCurrent = false;
     requestAnimationFrame(() => { programScroll = false; });
   }
 
+  // Работает и при закрытом плейлисте: иначе песни, сыгранные без него, в список не попали бы.
   async function refreshQueue() {
-    if (queueBusy || openPanel !== 'queue') return;
+    if (queueBusy) {
+      queueAgain = true;
+      return;
+    }
     queueBusy = true;
     try {
-      const queue = await desktop.queue();
-      if (openPanel === 'queue') renderQueue(queue);
+      mergeQueue(await desktop.queue());
+      if (openPanel === 'queue') renderQueue();
     } finally {
       queueBusy = false;
+      if (queueAgain) {
+        queueAgain = false;
+        refreshQueue();
+      }
     }
   }
 

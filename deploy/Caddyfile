@@ -1,5 +1,5 @@
-# Порт 443 на VPS занят VPN, поэтому HTTPS/WSS — на отдельном порту (JAM_HTTPS_PORT, по умолчанию 8443).
-# Порт 80 нужен Let's Encrypt для проверки домена (HTTP-01).
+# Порт 443 на VPS занят nginx с другим сайтом, поэтому HTTPS/WSS — на отдельном порту (JAM_HTTPS_PORT, по умолчанию 8443).
+# Порт 80 нужен Let's Encrypt для проверки домена (HTTP-01): nginx передаёт её сюда.
 # {$JAM_DOMAIN} и {$JAM_HTTPS_PORT} подставляет deploy.sh из переменных окружения.
 {
 	http_port 80
@@ -7,5 +7,12 @@
 }
 
 {$JAM_DOMAIN} {
-	reverse_proxy yandex-jam:8787
+	# Сервис ссылок на песню (deploy/deploy-links.sh), пока у него нет своего домена.
+	redir /links /links/
+	handle_path /links/* {
+		reverse_proxy song-links:8790
+	}
+	handle {
+		reverse_proxy yandex-jam:8787
+	}
 }

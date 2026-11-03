@@ -43,6 +43,10 @@ jobs:
             if (m.name !== 'babushkin-jam') throw new Error('в zip имя ' + m.name);
           "
 
+      - name: Сервис ссылок
+        working-directory: links
+        run: npm test
+
       - name: Зависимости сервера
         run: npm ci
         working-directory: server

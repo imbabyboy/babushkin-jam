@@ -1,7 +1,7 @@
 {
   "name": "babushkin-jam-desktop",
   "productName": "babushkin-jam",
-  "version": "0.1.6",
+  "version": "0.1.9",
   "private": true,
   "description": "Яндекс Музыка и совместное прослушивание в отдельном приложении для macOS и Windows",
   "license": "MIT",

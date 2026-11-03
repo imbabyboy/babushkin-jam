@@ -121,7 +121,7 @@ npm run dev        # с перезапуском при изменении ко�
 sh tools/build.sh     # → dist/babushkin-jam.zip
 ```
 
-В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка zip, сборка и запуск приложения, проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
+В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка zip, `build` (собрать и поставить приложение), `build-all` (все сборки для друзей в `dist/friends/`), проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Если что-то не работает
 
@@ -132,7 +132,8 @@ sh tools/build.sh     # → dist/babushkin-jam.zip
 - [Приватность](docs/PRIVACY.md) — какие данные уходят на сервер и какие нет
 - [Разрешения](docs/PERMISSIONS.md) — зачем расширению каждое разрешение
 - [Свой сервер](docs/SELF_HOSTING.md) — запуск и деплой сервера комнат
-- [Приложение для macOS и Windows](desktop/README.md) — Яндекс Музыка и джем без браузера
+- [Приложение для macOS и Windows](desktop/README.md) — Яндекс Музыка и джем без браузера, там же [будущие фичи](desktop/README.md#будущие-фичи)
+- [Сервис ссылок на песню](links/README.md) — находит песню на других площадках
 - [Решение проблем](docs/TROUBLESHOOTING.md) — частые неполадки и отладка
 - [Участие в разработке](CONTRIBUTING.md) — устройство проекта и соглашения
 - [Поддержка](SUPPORT.md) — куда писать

@@ -6,3 +6,5 @@ dist/
 babushkin-jam-ui-mockups/
 # приложение: generated/ собирается из extension/
 desktop/generated/
+# кэш сервиса ссылок
+links/*.db*
