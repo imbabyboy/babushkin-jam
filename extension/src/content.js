@@ -12,6 +12,7 @@
   const SETTLE_MS = 1500;         // после смены трека события паузы/перемотки — не от человека
   const OWN_TRACK_MS = 5000;      // сколько ждём от сервера трек, который включили сами
   const MAX_SWITCH_ATTEMPTS = 3;
+  const LOCAL_ACTION_MS = 1500;   // столько не подстраиваем паузу и позицию после своего действия
 
   let settings = { ...DEFAULTS };
   let ws = null;
@@ -207,6 +208,10 @@
   let ownTrackUntil = 0;          // отправили свой трек, ждём его от сервера
   let playPauseTimer = null;
   let seekTimer = null;
+  // Человек только что нажал паузу, перемотку или сменил трек, а сервер об этом ещё не знает.
+  // Подстройка в этот момент отменила бы нажатие или перемотала бы уже следующий трек.
+  let localActionUntil = 0;
+  const noteLocalAction = () => { localActionUntil = Date.now() + LOCAL_ACTION_MS; };
 
   function onPlayerEvent(ev) {
     if (ev.type === 'track' || ev.type === 'play' || ev.type === 'pause') {
@@ -257,6 +262,7 @@
   function onPlayPause(ev) {
     if (!room || Date.now() < settleUntil) return;
     if (consume(ev.type)) return;
+    noteLocalAction();
     // ждём чуть-чуть: пауза перед сменой трека или концом трека — не действие человека
     clearTimeout(playPauseTimer);
     playPauseTimer = setTimeout(async () => {
@@ -271,6 +277,7 @@
   function onSeek() {
     if (!room || Date.now() < settleUntil) return;
     if (consume('seek')) return;
+    noteLocalAction();
     // при перетаскивании ползунка seeked приходит пачкой — шлём последнее
     clearTimeout(seekTimer);
     seekTimer = setTimeout(async () => {
@@ -329,6 +336,7 @@
 
       switchAttempts = 0;
       if (warning) setWarning('');
+      if (s.loading || Date.now() < localActionUntil) return;
 
       if (s.paused !== room.paused) {
         expect(room.paused ? 'pause' : 'play');
@@ -373,6 +381,7 @@
   // пауза у всех, а смена трека делает нажавшего ведущим.
   let controlPlayAt = 0;
   async function control(action) {
+    noteLocalAction();
     if (action === 'toggle') {
       const s = await pageCall('state');
       if (!s.ok || !s.paused) return pageCall('pause');
@@ -462,6 +471,16 @@
     }
     if (msg.type === 'yjam:control') {
       control(msg.action).then(reply);
+      return true;
+    }
+    if (msg.type === 'yjam:queue') {
+      pageCall('queue').then(reply);
+      return true;
+    }
+    // Как «следующий трек»: смена уйдёт в комнату обычным путём и сделает нажавшего ведущим.
+    if (msg.type === 'yjam:queue-play') {
+      noteLocalAction();
+      pageCall('queuePlay', { index: msg.index, id: msg.id }).then(reply);
       return true;
     }
     if (msg.type === 'yjam:resync') {

@@ -44,6 +44,21 @@
       }
     },
     {
+      "label": "build",
+      "detail": "Закрывает запущенную копию, собирает текущий код для Apple Silicon, ставит в /Applications и открывает",
+      "type": "shell",
+      "command": "cd desktop && { [ -d node_modules ] || npm ci; } && { pkill -x babushkin-jam || true; } && while pgrep -x babushkin-jam > /dev/null; do sleep 0.2; done && npm run pack:mac-arm64 && rm -rf /Applications/babushkin-jam.app && ditto dist/mac-arm64/babushkin-jam.app /Applications/babushkin-jam.app && open /Applications/babushkin-jam.app",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "clear": true
+      }
+    },
+    {
       "label": "проверка",
       "detail": "Синтаксис JS и manifest.json — то же, что CI",
       "type": "shell",

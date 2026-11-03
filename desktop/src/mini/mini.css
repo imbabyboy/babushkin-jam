@@ -1,0 +1,156 @@
+/* Окно плеера: те же цвета и шрифты, что у попапа расширения. */
+:root {
+  color-scheme: dark;
+  --bg: #1C1C1C;
+  --field: #262626;
+  --field-line: #333;
+  --line: #2A2A2A;
+  --btn2: #2E2E2E;
+  --fg: #F2F2F2;
+  --soft: #C9C9C9;
+  --muted: #9E9E9E;
+  --muted2: #8A8A8A;
+  --placeholder: #6E6E6E;
+  --accent: #FFDB4D;
+  --accent-hover: #FFE680;
+  --ok: #5BD18B;
+  --warn-bg: #3A2A10;
+  --warn-fg: #FFCF8A;
+  --sans: "YJam Golos", system-ui, -apple-system, sans-serif;
+  --mono: "YJam Mono", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; background: var(--bg); overflow: hidden; }
+
+body {
+  color: var(--fg);
+  font: 14px/1.35 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+button:disabled { opacity: .35; cursor: default; }
+button, input { -webkit-app-region: no-drag; }
+svg { display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+svg.solid { fill: currentColor; stroke: none; }
+
+/* Окно без рамки: двигаем его за любое место, кроме кнопок и полей */
+#app { display: flex; flex-direction: column; -webkit-app-region: drag; }
+
+.now { display: flex; align-items: center; gap: 10px; padding: 10px 8px 6px 10px; }
+.cover { width: 44px; height: 44px; flex: none; border-radius: 8px; overflow: hidden; background: var(--field); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.text { flex: 1; min-width: 0; }
+.title, .artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title { font-weight: 600; }
+.artist { color: var(--muted); font-size: 12.5px; min-height: 17px; }
+.window-buttons { display: flex; align-self: flex-start; flex: none; }
+
+.icon { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--soft); }
+.icon:hover:not(:disabled) { background: var(--btn2); color: var(--fg); }
+.icon svg { width: 16px; height: 16px; }
+.window-buttons .icon { width: 26px; height: 26px; color: var(--muted2); }
+.window-buttons .icon svg { width: 13px; height: 13px; }
+.window-buttons .gear svg { width: 15px; height: 15px; stroke-width: 1.8; }
+/* Правила :hover не должны перебивать цвет включённой кнопки: курсор остаётся на ней сразу после клика. */
+.gear[aria-pressed="true"], .gear[aria-pressed="true"]:hover:not(:disabled) { background: var(--btn2); color: var(--accent); }
+.window-buttons .pin svg { width: 14px; height: 14px; }
+.pin[aria-pressed="true"], .pin[aria-pressed="true"]:hover:not(:disabled) { color: var(--accent); }
+
+.controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; padding: 0 10px 8px; }
+.jam {
+  justify-self: start; height: 28px; max-width: 100%; display: flex; align-items: center; gap: 6px; padding: 0 9px 0 7px;
+  border-radius: 14px; background: var(--btn2); color: var(--soft); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.jam:hover, .jam[aria-expanded="true"] { background: #383838; color: var(--fg); }
+.jam svg { width: 14px; height: 14px; flex: none; color: var(--accent); }
+.jam.alert { background: var(--accent); color: #121212; }
+.jam.alert svg { color: #121212; }
+
+.transport { display: flex; align-items: center; gap: 4px; }
+.play { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: #121212; }
+.play:hover:not(:disabled) { background: var(--accent-hover); }
+.play svg { width: 16px; height: 16px; }
+
+.tail { justify-self: end; display: flex; align-items: center; gap: 2px; margin-right: -4px; }
+.time { font: 500 11.5px var(--mono); color: var(--muted2); white-space: nowrap; }
+.list { width: 26px; height: 26px; flex: none; color: var(--muted2); }
+.list[aria-expanded="true"], .list[aria-expanded="true"]:hover:not(:disabled) { background: var(--btn2); color: var(--accent); }
+.list svg { width: 15px; height: 15px; }
+.list svg .solid { fill: currentColor; stroke: none; }
+
+/* Серая полоса видна и пока ничего не играет: только фон на высоту заливки, а не на всю кнопку */
+.progress { display: block; width: 100%; height: 8px; padding: 2px 0; flex: none; background: #3A3A3A content-box; }
+.progress span { display: block; height: 4px; width: 0; background: var(--accent); }
+.progress:hover span { background: var(--accent-hover); }
+.progress:disabled { opacity: 1; }
+
+.notice {
+  margin: 8px 10px 0; padding: 7px 10px; border-radius: 8px; text-align: left;
+  background: var(--warn-bg); color: var(--warn-fg); font-size: 12.5px;
+}
+.notice:last-child { margin-bottom: 10px; }
+.notice:disabled { opacity: 1; }
+
+/* Плейлист: окно растёт на высоту списка, дальше список прокручивается. Без no-drag колесо и клики двигали бы окно. */
+.queue-panel { margin-top: 8px; border-top: 1px solid var(--line); -webkit-app-region: no-drag; }
+.queue-empty { margin: 0; padding: 14px 12px; color: var(--muted); font-size: 12.5px; }
+.queue-list { max-height: 320px; margin: 0; padding: 4px; overflow-y: auto; list-style: none; }
+.queue-list:empty { display: none; }
+.queue-list::-webkit-scrollbar { width: 6px; }
+.queue-list::-webkit-scrollbar-thumb { background: #3A3A3A; border-radius: 3px; }
+.queue-item { display: flex; align-items: center; padding-right: 6px; border-radius: 8px; cursor: pointer; }
+.queue-item:hover { background: var(--field); }
+.queue-item.current, .queue-item.current:hover { background: var(--btn2); }
+.queue-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 8px; text-align: left; }
+.queue-cover { width: 32px; height: 32px; flex: none; border-radius: 5px; background: var(--field); object-fit: cover; }
+.queue-text { flex: 1; min-width: 0; }
+.queue-title, .queue-artist { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-title { font-size: 13px; }
+.queue-version { margin-left: 5px; color: var(--muted2); }
+.queue-artist { font-size: 11.5px; color: var(--muted); }
+.queue-duration { flex: none; font: 500 11px var(--mono); color: var(--muted2); }
+.queue-item.current .queue-title { color: var(--accent); font-weight: 600; }
+/* Пока не навели, кнопка не занимает места: width, а не display, чтобы до неё можно было дойти с клавиатуры. */
+.queue-copy { width: 0; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; opacity: 0; border-radius: 7px; color: var(--muted); }
+.queue-item:hover .queue-copy, .queue-copy:focus-visible, .queue-copy.copied { width: 26px; margin-right: 4px; opacity: 1; }
+.queue-copy:hover { background: #3A3A3A; color: var(--fg); }
+.queue-copy svg { width: 14px; height: 14px; flex: none; }
+.queue-copy .done-icon, .queue-copy.copied .copy-icon { display: none; }
+.queue-copy.copied .done-icon { display: block; color: var(--accent); }
+
+.panel { padding: 12px 10px; margin-top: 8px; border-top: 1px solid var(--line); }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; gap: 8px; }
+.grow { flex: 1; }
+.input {
+  flex: 1; min-width: 0; height: 36px; padding: 0 10px; outline: none; user-select: text;
+  background: var(--field); border: 1px solid var(--field-line); border-radius: 9px; color: var(--fg); font: inherit;
+}
+.input::placeholder { color: var(--placeholder); }
+.input:focus { border-color: var(--accent); }
+.primary { height: 38px; border-radius: 10px; background: var(--accent); color: #121212; font-weight: 600; }
+.primary:hover { background: var(--accent-hover); }
+.secondary { height: 36px; padding: 0 14px; border-radius: 9px; background: var(--btn2); font-weight: 600; }
+.secondary:hover { background: #383838; }
+.outline { height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #3A3A3A; color: var(--soft); }
+.outline:hover { background: var(--field); color: var(--fg); }
+
+.room-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.code { font: 700 17px/1.2 var(--mono); letter-spacing: .08em; user-select: text; -webkit-app-region: no-drag; }
+.conn { font-size: 12px; color: var(--muted2); }
+.conn.ok { color: var(--ok); }
+
+.members { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.member { display: flex; align-items: center; gap: 8px; min-height: 26px; font-size: 13.5px; }
+.avatar {
+  width: 22px; height: 22px; flex: none; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: #121212; font-size: 11px; font-weight: 700;
+}
+.member-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.you { color: var(--muted2); font-size: 12px; margin-left: 5px; }
+.host { flex: none; color: var(--accent); font-size: 11.5px; font-weight: 600; }

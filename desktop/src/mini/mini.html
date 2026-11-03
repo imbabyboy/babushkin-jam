@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; font-src yjam-asset:">
+  <title>babushkin-jam — плеер</title>
+  <link rel="stylesheet" href="mini.css">
+</head>
+<body>
+  <main id="app">
+    <section class="now">
+      <div class="cover"><img id="cover" alt="" hidden></div>
+      <div class="text">
+        <div id="title" class="title">Ничего не играет</div>
+        <div id="artist" class="artist"></div>
+      </div>
+      <div class="window-buttons">
+        <button id="ontop" class="icon pin" title="Поверх всех окон" aria-label="Поверх всех окон" aria-pressed="true">
+          <svg viewBox="0 0 24 24"><path d="M12 17v5M9 3h6l-1 7 3 3v2H7v-2l3-3z"/></svg>
+        </button>
+        <button id="settings" class="icon gear" title="Настройки" aria-label="Настройки" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+        <button id="hide" class="icon" title="Свернуть в трей" aria-label="Свернуть в трей">
+          <svg viewBox="0 0 24 24"><path d="M6 18h12"/></svg>
+        </button>
+        <button id="full" class="icon" title="Открыть полное окно" aria-label="Открыть полное окно">
+          <svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="jam" class="jam" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="2.5" y="14" width="4.5" height="7" rx="1.5"/><rect x="17" y="14" width="4.5" height="7" rx="1.5"/></svg>
+        <span id="jam-label">Джем</span>
+      </button>
+      <div class="transport">
+        <button id="prev" class="icon" title="Предыдущий трек" aria-label="Предыдущий трек">
+          <svg class="solid" viewBox="0 0 24 24"><path d="M6 5h2.5v14H6zM20 5v14L9.5 12z"/></svg>
+        </button>
+        <button id="toggle" class="play" title="Плей или пауза" aria-label="Плей или пауза">
+          <svg id="icon-play" class="solid" viewBox="0 0 24 24"><path d="M7 4.5v15L20 12z"/></svg>
+          <svg id="icon-pause" class="solid" viewBox="0 0 24 24" hidden><path d="M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z"/></svg>
+        </button>
+        <button id="next" class="icon" title="Следующий трек" aria-label="Следующий трек">
+          <svg class="solid" viewBox="0 0 24 24"><path d="M15.5 5H18v14h-2.5zM4 5v14l10.5-7z"/></svg>
+        </button>
+      </div>
+      <div class="tail">
+        <div id="time" class="time">- / -</div>
+        <button id="queue" class="icon list" title="Плейлист" aria-label="Плейлист" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h8"/><path class="solid" d="M16 14v7l5.5-3.5z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <button id="progress" class="progress" aria-label="Перемотать"><span id="progress-fill"></span></button>
+
+    <button id="notice" class="notice" hidden></button>
+
+    <section id="queue-panel" class="queue-panel" hidden>
+      <p id="queue-empty" class="queue-empty" hidden></p>
+      <ol id="queue-list" class="queue-list"></ol>
+    </section>
+
+    <section id="panel" class="panel" hidden>
+      <div id="lobby" class="stack" hidden>
+        <button id="create" class="primary">Создать комнату</button>
+        <div class="row">
+          <input id="code" class="input" placeholder="Код или ссылка" autocomplete="off" spellcheck="false">
+          <button id="join" class="secondary">Войти</button>
+        </div>
+      </div>
+      <div id="room" class="stack" hidden>
+        <div class="room-head">
+          <span id="room-code" class="code"></span>
+          <span id="conn" class="conn"></span>
+        </div>
+        <ul id="members" class="members"></ul>
+        <div class="row">
+          <button id="copy" class="secondary grow">Скопировать ссылку</button>
+          <button id="leave" class="outline">Выйти</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="chrome-alias.js"></script>
+  <script src="../../generated/shared.js"></script>
+  <script src="mini.js"></script>
+</body>
+</html>

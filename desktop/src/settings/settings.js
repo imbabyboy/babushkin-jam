@@ -1,0 +1,115 @@
+// Дополнение к попапу расширения: настройки самого приложения в разделе под шестерёнкой.
+// Попап тот же самый, поэтому имя, сервер, комната, синхронизация и диагностика работают как в браузере.
+
+(async () => {
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  };
+  const info = await desktop.info();
+
+  // Браузерный буфер обмена требует фокус на окне, а настройки открывают и из трея.
+  navigator.clipboard.writeText = (text) => desktop.copy(text);
+
+  // Попап закрывает себя как окно браузера. Здесь закрыть — значит свернуть настройки.
+  window.close = () => desktop.closeSettings();
+
+  desktop.onSettingsState(({ placement }) => { document.documentElement.dataset.placement = placement; });
+
+  // До обработчиков попапа: Esc сначала закрывает его меню и отменяет ввод, и только потом — настройки.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.target.matches('input')) return;
+    if (document.getElementById('tools').getAttribute('aria-expanded') === 'true') return;
+    desktop.closeSettings();
+  }, true);
+
+  function field(label, control) {
+    const box = el('div', 'field');
+    box.append(el('span', 'label', label), control);
+    return box;
+  }
+
+  // Переключатель в стиле попапа (.seg): варианты из главного процесса, текущий подсвечен.
+  function segment(options, onPick) {
+    const seg = el('div', 'seg stack-seg');
+    seg.setAttribute('role', 'radiogroup');
+    const buttons = Object.entries(options).map(([value, label]) => {
+      const b = el('button', '', label);
+      b.setAttribute('role', 'radio');
+      b.onclick = () => onPick(value);
+      seg.append(b);
+      return [value, b];
+    });
+    seg.show = (current) => {
+      for (const [value, b] of buttons) b.setAttribute('aria-checked', String(value === current));
+    };
+    return seg;
+  }
+
+  function checkbox(label, onToggle) {
+    const row = el('label', 'check');
+    const input = el('input');
+    input.type = 'checkbox';
+    input.onchange = () => onToggle(input.checked);
+    row.append(input, el('span', '', label));
+    row.show = (on) => { input.checked = on; };
+    return row;
+  }
+
+  const mode = segment(info.modes, (value) => desktop.setMode(value));
+  const closeAction = segment(info.closeActions, (value) => chrome.storage.local.set({ closeAction: value }));
+  const onTop = checkbox('Плеер поверх всех окон', (on) => chrome.storage.local.set({ miniOnTop: on }));
+  const trayIcon = checkbox('Иконка в трее', (on) => chrome.storage.local.set({ trayIcon: on }));
+  // Без иконки у режима трея нет видимого пути обратно, поэтому говорим, где он теперь.
+  const trayHint = el('p', 'disclaimer', info.platform === 'macOS'
+    ? 'Если свернуть в трей, вернуть окно можно кликом по значку в Доке.'
+    : 'Если свернуть в трей, вернуть окно можно повторным запуском приложения.');
+  const hotkeys = checkbox('Горячие клавиши', (on) => chrome.storage.local.set({ hotkeys: on }));
+
+  const keyList = el('dl', 'keys');
+  for (const h of info.hotkeys) keyList.append(el('dt', '', h.label), el('dd', '', h.keys));
+
+  const reload = el('button', 'btn-outline', 'Обновить страницу Яндекс Музыки');
+  reload.onclick = () => desktop.reloadMusic();
+
+  const version = el('p', 'disclaimer', `Приложение ${info.version} · ${info.platform}`);
+
+  const section = el('div', 'stack app-section');
+  section.append(
+    el('div', 'sep'),
+    field('Окно приложения', mode),
+    field('При закрытии окна', closeAction),
+    onTop,
+    trayIcon,
+    trayHint,
+    hotkeys,
+    keyList,
+    reload,
+    version,
+  );
+  document.getElementById('settings-done').before(section);
+
+  async function render() {
+    const p = await chrome.storage.local.get(info.prefDefaults);
+    mode.show(p.mode);
+    closeAction.show(p.closeAction);
+    onTop.show(p.miniOnTop);
+    trayIcon.show(p.trayIcon);
+    trayHint.hidden = p.trayIcon;
+    hotkeys.show(p.hotkeys);
+    keyList.hidden = !p.hotkeys;
+  }
+  chrome.storage.onChanged.addListener(render);
+  render();
+
+  // Высота — по содержимому: в попапе у разных разделов она разная. Меню под гаечным ключом лежит
+  // поверх страницы и в её высоту не входит, а обрезать его нельзя.
+  const menu = document.getElementById('menu');
+  const reportHeight = () => desktop.setHeight(
+    Math.max(document.body.offsetHeight, menu.hidden ? 0 : menu.offsetTop + menu.offsetHeight + 10),
+  );
+  const watcher = new ResizeObserver(reportHeight);
+  for (const node of [document.body, menu]) watcher.observe(node);
+})();
