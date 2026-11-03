@@ -48,7 +48,7 @@ npm run dist:win        # ../dist/native/babushkin-jam Setup <версия>.exe
 
 Задача «build-all» (`sh tools/build-all.sh`) пересобирает всё сразу: приложение для обоих Mac и Windows и расширение. Файлы с понятными именами появляются в `dist/builds/`, установленное приложение она не трогает.
 
-Обе сборки делаются и на Mac. На GitHub их собирает workflow «Release» при мерже в `main`, готовые файлы — на странице [загрузок](../docs/DOWNLOADS.md).
+Обе сборки делаются и на Mac. На GitHub их собирает workflow «Release» при мерже в `main`, готовые файлы — на странице [релизов](https://github.com/imbabyboy/babushkin-jam/releases).
 
 ## Первый запуск собранного приложения
 

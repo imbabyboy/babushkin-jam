@@ -109,7 +109,17 @@ jobs:
           section() { awk -v h="## [$1]" 'index($0, h) == 1 {f=1; next} /^(## )?\[/ {f=0} f' CHANGELOG.md; }
           body=$(section "$EXT")
           [ -n "$body" ] || body=$(section Unreleased)
-          printf 'Расширение %s, приложение %s. Коммит %s.\n\n%s\n' "$EXT" "$APP" "$GITHUB_SHA" "$body" > notes.md
+          {
+            printf 'Расширение %s, приложение %s. Коммит %s.\n\n' "$EXT" "$APP" "$GITHUB_SHA"
+            cat <<'NOTE'
+          **Первый запуск приложения.** Оно пока не подписано сертификатом разработчика, поэтому система его предупредит:
+
+          - **macOS:** после установки выполните в Терминале `xattr -cr /Applications/babushkin-jam.app`.
+          - **Windows:** в окне SmartScreen нажмите «Подробнее» → «Выполнить в любом случае».
+
+          NOTE
+            printf '%s\n' "$body"
+          } > notes.md
 
       - name: Публикация
         env:
