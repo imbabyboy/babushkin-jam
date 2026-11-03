@@ -1,0 +1,9 @@
+FROM node:22-alpine
+WORKDIR /app
+COPY . .
+# Кэш лежит на томе Docker и переживает обновление контейнера.
+RUN mkdir -p /data && chown node /data
+ENV PORT=8790 LINKS_DB=/data/links-cache.db
+EXPOSE 8790
+USER node
+CMD ["node", "server.js"]

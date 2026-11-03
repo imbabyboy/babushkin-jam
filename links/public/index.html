@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--HEAD-->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page">
+    <form id="form" class="search" action="" method="get" role="search">
+      <input id="q" class="input" name="q" maxlength="200" placeholder="Вставьте название песни" autocomplete="off" spellcheck="false" aria-label="Название песни">
+      <button class="primary" type="submit">Найти</button>
+    </form>
+
+    <p id="status" class="status" role="status" hidden></p>
+
+    <section id="result" class="result" hidden>
+      <header class="track">
+        <img id="cover" class="cover" alt="" hidden>
+        <div class="track-text">
+          <h1 id="title" class="title"></h1>
+          <p id="artist" class="artist"></p>
+        </div>
+      </header>
+      <ul id="services" class="services"></ul>
+      <button id="share" class="secondary" type="button">Скопировать ссылку на страницу</button>
+    </section>
+  </main>
+  <footer class="footer">Неофициальный сервис, не связан с перечисленными площадками. Музыку не хранит и не скачивает, только ищет ссылки.</footer>
+  <script src="app.js"></script>
+</body>
+</html>

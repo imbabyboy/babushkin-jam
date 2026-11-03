@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('desktop', {
   control: (action) => ipcRenderer.invoke('yjam:control', action),
   seek: (position) => ipcRenderer.invoke('yjam:seek', position),
   queue: () => ipcRenderer.invoke('yjam:queue'),
-  playFromQueue: (index, id) => ipcRenderer.invoke('yjam:queue-play', index, id),
+  playFromQueue: (index, id, albumId) => ipcRenderer.invoke('yjam:queue-play', index, id, albumId),
   setMode: (mode) => ipcRenderer.invoke('yjam:set-mode', mode),
   toggleSettings: () => ipcRenderer.invoke('yjam:toggle-settings'),
   closeSettings: () => ipcRenderer.invoke('yjam:close-settings'),
@@ -47,4 +47,5 @@ contextBridge.exposeInMainWorld('desktop', {
   info: () => ipcRenderer.invoke('yjam:info'),
   setHeight: (height) => ipcRenderer.send('yjam:window-height', height),
   copy: (text) => ipcRenderer.invoke('yjam:copy', text),
+  openSongPage: (track) => ipcRenderer.invoke('yjam:open-song-page', track),
 });

@@ -617,6 +617,7 @@
       index,
       id,
       albumId: album && album.id != null ? String(album.id) : (seen && seen.albumId) || null,
+      album: (album && album.title) || '',
       title,
       version: meta.version || '',
       // у сборников один и тот же артист бывает указан дважды
@@ -648,19 +649,25 @@
     return { ok: true, tracks, current, total: list.length };
   }
 
-  // Список мог измениться, пока на него смотрели: сверяем трек, а не только номер.
-  function playFromQueue({ index, id }) {
+  // Строка могла устареть: номер сверяем с треком, а если сайт его переставил — ищем трек по id.
+  // Песни из прошлого альбома или плейлиста в очереди сайта уже нет, её включаем через страницу трека.
+  // switching — трек сейчас сменится, content.js не должен вернуть трек комнаты.
+  async function playFromQueue({ index, id, albumId }) {
     const player = findSitePlayer();
-    if (!player) return { ok: false, error: 'не нашёл плеер сайта' };
-    const state = player.state.queueState;
-    const item = (state.entityList.value || [])[index];
-    const meta = item && item.entity && item.entity.data && item.entity.data.meta;
-    if (!meta || String(meta.id) !== String(id)) return { ok: false, stale: true, error: 'очередь изменилась' };
+    const state = player && player.state.queueState;
+    const list = (state && state.entityList.value) || [];
+    const isWanted = (item) => {
+      const meta = item && item.entity && item.entity.data && item.entity.data.meta;
+      return !!meta && String(meta.id) === String(id);
+    };
+    const at = isWanted(list[index]) ? index : list.findIndex(isWanted);
+    if (at < 0) return { ...(await playTrack({ id, albumId })), switching: true };
+
     const now = state.currentEntity.value;
     // Повторный вызов на текущем треке начал бы его сначала.
-    if (now && now.entity === item.entity) return snapshot().paused ? commands.play() : { ok: true, via: 'already' };
-    Promise.resolve(player.setEntityByIndex(index)).catch(() => {});
-    return { ok: true, via: 'setEntityByIndex' };
+    if (now && now.entity === list[at].entity) return snapshot().paused ? commands.play() : { ok: true, via: 'already' };
+    Promise.resolve(player.setEntityByIndex(at)).catch(() => {});
+    return { ok: true, via: 'setEntityByIndex', switching: true };
   }
 
   // ---------- 7. Команды ----------

@@ -59,6 +59,21 @@
       }
     },
     {
+      "label": "build-all",
+      "detail": "Пересобирает приложение для Mac и Windows и расширение, кладёт файлы для друзей в dist/friends и открывает папку",
+      "type": "shell",
+      "command": "sh tools/build-all.sh && open dist/friends",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "clear": true
+      }
+    },
+    {
       "label": "проверка",
       "detail": "Синтаксис JS и manifest.json — то же, что CI",
       "type": "shell",

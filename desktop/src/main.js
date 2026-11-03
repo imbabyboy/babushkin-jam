@@ -659,13 +659,17 @@ function setupIpc() {
   handle('yjam:control', (action) => control(action));
   handle('yjam:seek', (position) => askMusic({ type: 'yjam:seek', position: Number(position) || 0 }));
   handle('yjam:queue', () => askMusic({ type: 'yjam:queue' }, STATUS_TIMEOUT_MS));
-  handle('yjam:queue-play', async (index, id) => {
-    const result = await askMusic({ type: 'yjam:queue-play', index: Number(index), id: String(id) });
+  handle('yjam:queue-play', async (index, id, albumId) => {
+    const result = await askMusic({
+      type: 'yjam:queue-play', index: Number(index), id: String(id), albumId: albumId ? String(albumId) : null,
+    });
     poll();
     return result;
   });
   handle('yjam:set-mode', (mode) => setMode(mode));
   handle('yjam:copy', (text) => clipboard.writeText(String(text)));
+  // Окно передаёт только данные трека, а адрес строится здесь: страница не может открыть произвольную ссылку.
+  handle('yjam:open-song-page', (track) => shell.openExternal(YJam.songPageUrl(track)));
   handle('yjam:toggle-settings', () => toggleSettings());
   handle('yjam:close-settings', () => closeSettings());
   handle('yjam:reload-music', () => musicContents().reload());
