@@ -108,7 +108,7 @@ var YJam = (() => {
   const avatarColor = (i) => AVATAR_COLORS[i % AVATAR_COLORS.length];
   const initial = (name) => (Array.from(String(name || '?').trim())[0] || '?').toUpperCase();
 
-  // Локальная сборка (папка extension/) называется «babushkin-jam (local)», в магазине — без приписки.
+  // Локальная сборка (папка dist/extension/) называется «babushkin-jam (local)», в магазине — без приписки.
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {

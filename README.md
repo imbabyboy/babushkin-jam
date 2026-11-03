@@ -10,8 +10,14 @@
 </p>
 
 <p align="center">
+  <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe"><img src="https://img.shields.io/badge/%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%B8%D1%82%D1%8C%20%D0%B8%D0%B7%20Chrome%20Web%20Store-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Установить из Chrome Web Store"></a>
+  <a href="docs/DOWNLOADS.md"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B8-d6336c?style=for-the-badge&logo=github&logoColor=white" alt="Скачать сборки"></a>
+</p>
+
+<p align="center">
   <a href="https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe">Chrome Web Store</a> ·
   <a href="#установка">Установка</a> ·
+  <a href="https://github.com/imbabyboy/babushkin-jam/releases">Все релизы</a> ·
   <a href="#как-пользоваться">Как пользоваться</a> ·
   <a href="#приватность">Приватность</a> ·
   <a href="#свой-сервер">Свой сервер</a> ·
@@ -24,7 +30,7 @@
   <a href="https://github.com/imbabyboy/babushkin-jam/releases"><img src="https://img.shields.io/github/v/release/imbabyboy/babushkin-jam?label=release&color=d6336c" alt="Последний релиз"></a>
   <a href="https://github.com/imbabyboy/babushkin-jam/actions/workflows/ci.yml"><img src="https://github.com/imbabyboy/babushkin-jam/actions/workflows/ci.yml/badge.svg?branch=main" alt="Статус CI"></a>
   <a href="#что-нужно"><img src="https://img.shields.io/badge/Chrome-111%2B-4285F4?logo=googlechrome&logoColor=white" alt="Chrome 111 и новее"></a>
-  <a href="#свой-сервер"><img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 18 и новее"></a>
+  <a href="#свой-сервер"><img src="https://img.shields.io/badge/Node.js-22.13%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 22.13 и новее"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="Лицензия MIT"></a>
 </p>
 
@@ -66,7 +72,7 @@
 
 **Вручную** — если магазин недоступен или нужна конкретная версия:
 
-1. Скачайте `babushkin-jam.zip` со [страницы релизов](https://github.com/imbabyboy/babushkin-jam/releases) и распакуйте.
+1. Скачайте [babushkin-jam-extension.zip](https://github.com/imbabyboy/babushkin-jam/releases/latest/download/babushkin-jam-extension.zip) и распакуйте. Старые версии — на [странице релизов](https://github.com/imbabyboy/babushkin-jam/releases).
 2. Откройте `chrome://extensions` и включите «Режим разработчика» (справа вверху).
 3. «Загрузить распакованное» → выберите распакованную папку.
 
@@ -103,7 +109,7 @@
 Сервер комнат — один файл на Node.js с единственной зависимостью `ws`.
 
 ```sh
-cd server
+cd services/rooms
 npm install
 npm start          # ws://localhost:8787
 npm run dev        # с перезапуском при изменении кода
@@ -113,15 +119,22 @@ npm run dev        # с перезапуском при изменении ко�
 
 ### Разработка
 
-Для разработки собирать ничего не нужно: Chrome загружает папку `extension/` как есть. После правок нажмите ↻ у расширения в `chrome://extensions` и перезагрузите вкладку.
-
-Локальная копия из `extension/` — с **голубой** иконкой и именем «babushkin-jam (local)», а версия из Chrome Web Store — с **красной**. Их можно держать установленными одновременно, только включённой — одну. Архив для магазина (красная иконка, имя без «(local)»):
+Chrome загружает расширение из одной папки, а код джема лежит отдельно, в `shared/`, поэтому расширение сначала собирается:
 
 ```sh
-sh tools/build.sh     # → dist/babushkin-jam.zip
+node tools/build-extension.js           # → dist/extension/
+node tools/build-extension.js --watch   # то же и пересборка при каждой правке
 ```
 
-В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка zip, `build` (собрать и поставить приложение), `build-all` (все сборки для друзей в `dist/friends/`), проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
+В `chrome://extensions` включите режим разработчика и загрузите папку `dist/extension/`. После правок нажмите ↻ у расширения и перезагрузите вкладку.
+
+Локальная копия из `dist/extension/` — с **голубой** иконкой и именем «babushkin-jam (local)», а версия из Chrome Web Store — с **красной**. Их можно держать установленными одновременно, только включённой — одну. Архив для магазина (красная иконка, имя без «(local)»):
+
+```sh
+sh tools/build.sh     # → dist/builds/babushkin-jam-extension-<версия>.zip
+```
+
+В VS Code `Cmd+Shift+B` открывает список задач: сервер в режиме watch, сборка и автосборка расширения, сборка zip, `build` (собрать и поставить приложение), `build-all` (все сборки в `dist/builds/`), проверка, git. Устройство проекта и договорённости — в [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Если что-то не работает
 
@@ -129,11 +142,12 @@ sh tools/build.sh     # → dist/babushkin-jam.zip
 
 ## Документация
 
+- [Скачать сборки](docs/DOWNLOADS.md) — расширение и приложение для macOS и Windows
 - [Приватность](docs/PRIVACY.md) — какие данные уходят на сервер и какие нет
 - [Разрешения](docs/PERMISSIONS.md) — зачем расширению каждое разрешение
 - [Свой сервер](docs/SELF_HOSTING.md) — запуск и деплой сервера комнат
-- [Приложение для macOS и Windows](desktop/README.md) — Яндекс Музыка и джем без браузера, там же [будущие фичи](desktop/README.md#будущие-фичи)
-- [Сервис ссылок на песню](links/README.md) — находит песню на других площадках
+- [Приложение для macOS и Windows](native/README.md) — Яндекс Музыка и джем без браузера, там же [будущие фичи](native/README.md#будущие-фичи)
+- [Сервис ссылок на песню](services/links/README.md) — находит песню на других площадках
 - [Решение проблем](docs/TROUBLESHOOTING.md) — частые неполадки и отладка
 - [Участие в разработке](CONTRIBUTING.md) — устройство проекта и соглашения
 - [Поддержка](SUPPORT.md) — куда писать
@@ -143,7 +157,7 @@ sh tools/build.sh     # → dist/babushkin-jam.zip
 
 ## Ограничения
 
-- Официального API у Яндекс Музыки нет. Адаптер плеера (`extension/src/page.js`) опирается на устройство сайта и может сломаться после его обновления.
+- Официального API у Яндекс Музыки нет. Адаптер плеера (`shared/page.js`) опирается на устройство сайта и может сломаться после его обновления.
 - Очередь ведущего целиком не читается: известен только следующий трек.
 - Если трека нет в подписке или регионе участника, у него синхронизация не сработает.
 

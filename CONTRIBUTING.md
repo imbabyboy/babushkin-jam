@@ -5,19 +5,25 @@
 ## Как устроен проект
 
 ```
-extension/            расширение Chrome (Manifest V3), без сборки
-  manifest.json
-  src/page.js         адаптер плеера: работает в контексте страницы, всё про устройство сайта — здесь
-  src/shared.js       общие настройки и хелперы (глобальный YJam)
-  src/overlay.js      панель «Джем» в Shadow DOM, без логики
-  src/content.js      логика джема: соединение, комната, защита от эха, подстройка плеера
-  popup/              попап расширения
+shared/               код джема и шрифты: один на расширение и приложение
+  page.js             адаптер плеера: работает в контексте страницы, всё про устройство сайта — здесь
+  shared.js           общие настройки и хелперы (глобальный YJam)
+  content.js          логика джема: соединение, комната, защита от эха, подстройка плеера
   fonts/              Golos Text и JetBrains Mono (woff2, кириллица + латиница, OFL)
-server/               сервер комнат: Node.js + ws, состояние только в памяти
-deploy/               Dockerfile, Caddyfile и скрипт деплоя
+extension/            только расширение Chrome (Manifest V3)
+  manifest.json
+  src/overlay.js      панель «Джем» в Shadow DOM, без логики
+  src/background.js   фоновый скрипт: виджет на других сайтах
+  src/remote.js       виджет на других сайтах
+  popup/              попап, его же использует окно настроек приложения
+native/               приложение для macOS и Windows на Electron
+services/rooms/       сервер комнат: Node.js + ws, состояние только в памяти
+services/links/       сервис ссылок на песню
+deploy/               Dockerfile, Caddyfile и скрипты деплоя
 store/                тексты и картинки для Chrome Web Store
 docs/                 документация
 assets/icons-prod/    красные иконки для магазина (в extension/icons — голубые для локальной версии)
+tools/build-extension.js  сборка расширения в dist/extension/ для разработки
 tools/build.sh        сборка zip для магазина
 tools/ym-probe.js     скрипт-разведка плеера для консоли браузера
 ```
@@ -34,12 +40,12 @@ popup.js ⇄ chrome.tabs.sendMessage ⇄ content.js
 ## Запуск
 
 ```sh
-cd server && npm install && npm run dev
+cd services/rooms && npm install && npm run dev
 ```
 
-Расширение: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `extension/`. Это локальная версия: голубая иконка и имя «babushkin-jam (local)», чтобы не путать с версией из магазина (красная). Прод-сборку делает `sh tools/build.sh`. В попапе впишите сервер `ws://localhost:8787`. Для проверки синхронизации удобно взять два профиля Chrome.
+Расширение: `node tools/build-extension.js` (или с `--watch`, чтобы пересобирать при каждой правке), затем `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `dist/extension/`. Папку `extension/` напрямую загрузить нельзя: в ней нет кода из `shared/`. Это локальная версия: голубая иконка и имя «babushkin-jam (local)», чтобы не путать с версией из магазина (красная). Прод-сборку делает `sh tools/build.sh`. В попапе впишите сервер `ws://localhost:8787`. Для проверки синхронизации удобно взять два профиля Chrome.
 
-После правок нажмите ↻ у расширения и перезагрузите вкладку Яндекс Музыки (если меняли только попап — вкладку перезагружать не нужно).
+После правок и пересборки нажмите ↻ у расширения и перезагрузите вкладку Яндекс Музыки (если меняли только попап — вкладку перезагружать не нужно).
 
 ## Ветки
 
@@ -59,7 +65,7 @@ cd server && npm install && npm run dev
 
 ## Стиль кода
 
-- Обычный JavaScript без сборки и TypeScript. Сервер — ES-модули, расширение — скрипты в IIFE.
+- Обычный JavaScript без сборщиков и TypeScript. Сервер — ES-модули, расширение — скрипты в IIFE.
 - 2 пробела, одинарные кавычки, точки с запятой.
 - Константы — `UPPER_SNAKE` с единицами в имени: `ECHO_MS`, `DRIFT_SEC`.
 - Комментарии и тексты интерфейса — по-русски. Комментарий объясняет «почему», а не «что».
@@ -71,7 +77,7 @@ cd server && npm install && npm run dev
 Тестов пока нет. CI проверяет синтаксис всех JS-файлов и `manifest.json` и запускает сервер. Локально то же самое:
 
 ```sh
-for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done
+for f in services/rooms/server.js shared/*.js extension/src/*.js extension/popup/*.js tools/*.js; do node --check "$f"; done
 node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json'))"
 ```
 
@@ -80,7 +86,7 @@ node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json'))"
 ## Релиз
 
 1. Поднять `version` в `extension/manifest.json` и дописать `CHANGELOG.md`.
-2. Закоммитить и поставить тег: `git tag v0.4.0 && git push --tags`.
-3. GitHub Actions соберёт `babushkin-jam.zip` и создаст релиз.
-4. Загрузить этот zip в [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) → babushkin-jam → «Пакет» → «Загрузить новый пакет» и отправить на проверку.
+2. Смержить в `main`. Если менялось расширение или приложение, GitHub Actions соберёт zip, два dmg и exe. Новая версия создаст релиз `v<версия>`, при той же версии файлы в нём заменятся. Тег ставить не нужно.
+3. Проверить файлы на странице [загрузок](docs/DOWNLOADS.md).
+4. Загрузить zip в [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) → babushkin-jam → «Пакет» → «Загрузить новый пакет» и отправить на проверку.
 5. Если менялся сервер — задеплоить его до релиза расширения (`sh deploy/deploy.sh`, см. [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)).

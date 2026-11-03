@@ -18,41 +18,45 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: services/rooms/package-lock.json
 
       - name: Синтаксис JS
         run: |
-          node desktop/scripts/bundle.js
-          for f in server/server.js extension/src/*.js extension/popup/*.js tools/*.js desktop/src/*.js desktop/src/mini/*.js desktop/src/toolbar/*.js desktop/src/settings/*.js desktop/scripts/*.js desktop/generated/*.js desktop/generated/settings/*.js; do node --check "$f"; done
+          node native/scripts/bundle.js
+          for f in services/rooms/server.js shared/*.js extension/src/*.js extension/popup/*.js tools/*.js native/src/*.js native/src/mini/*.js native/src/toolbar/*.js native/src/settings/*.js native/scripts/*.js native/generated/*.js native/generated/settings/*.js; do node --check "$f"; done
           sh -n tools/build.sh
 
-      - name: manifest.json
+      - name: manifest.json и сборка расширения
         run: |
+          node tools/build-extension.js
           node -e "
-            const m = JSON.parse(require('fs').readFileSync('extension/manifest.json'));
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('dist/extension/manifest.json'));
             if (m.manifest_version !== 3) throw new Error('нужен Manifest V3');
-            for (const cs of m.content_scripts) for (const f of cs.js) require('fs').accessSync('extension/' + f);
+            const files = [m.background.service_worker, m.action.default_popup, 'fonts/golos-latin.woff2'];
+            for (const cs of m.content_scripts) files.push(...cs.js);
+            for (const f of files) fs.accessSync('dist/extension/' + f);
             console.log('babushkin-jam', m.version);
           "
 
       - name: Сборка zip для магазина
         run: |
           sh tools/build.sh
-          unzip -p dist/babushkin-jam.zip manifest.json | node -e "
+          unzip -p dist/builds/babushkin-jam-extension-*.zip manifest.json | node -e "
             const m = JSON.parse(require('fs').readFileSync(0));
             if (m.name !== 'babushkin-jam') throw new Error('в zip имя ' + m.name);
           "
 
       - name: Сервис ссылок
-        working-directory: links
+        working-directory: services/links
         run: npm test
 
       - name: Зависимости сервера
         run: npm ci
-        working-directory: server
+        working-directory: services/rooms
 
       - name: Сервер запускается
-        working-directory: server
+        working-directory: services/rooms
         run: |
           PORT=8787 node server.js &
           for i in $(seq 1 20); do curl -fsS http://localhost:8787/ && break; sleep 0.5; done

@@ -1,6 +1,6 @@
 // Preload окна Яндекс Музыки. Делает то же, что content_scripts в manifest.json расширения:
 // page.js — в мир страницы до скриптов сайта, остальное — в изолированный мир.
-// bundle.js подставляет сюда код из extension/ и кладёт результат в generated/preload-music.js.
+// bundle.js подставляет сюда код из shared/ и кладёт результат в generated/preload-music.js.
 
 const { ipcRenderer, webFrame } = require('electron');
 

@@ -36,19 +36,19 @@
 Нужен Node.js 22 или новее.
 
 ```bash
-cd desktop
+cd native
 npm install
 npm start               # запуск для разработки
-npm run pack:mac-arm64  # dist/mac-arm64/babushkin-jam.app (Apple Silicon), без установщика
-npm run dist:mac        # dist/babushkin-jam-<версия>-arm64.dmg и dist/babushkin-jam-<версия>.dmg (Intel)
-npm run dist:win        # dist/babushkin-jam Setup <версия>.exe
+npm run pack:mac-arm64  # ../dist/native/mac-arm64/babushkin-jam.app (Apple Silicon), без установщика
+npm run dist:mac        # ../dist/native/babushkin-jam-<версия>-arm64.dmg и babushkin-jam-<версия>.dmg (Intel)
+npm run dist:win        # ../dist/native/babushkin-jam Setup <версия>.exe
 ```
 
 В VS Code (`Cmd+Shift+B`) задача «build» для Mac на Apple Silicon закрывает запущенную копию, собирает текущий код, заменяет `/Applications/babushkin-jam.app` и открывает приложение. Копию она закрывает заранее, потому что вторая копия не запускается, а сборка заменяет папку приложения. Вход и настройки при этом сохраняются: они лежат не в самом приложении.
 
-Задача «build-all» (`sh tools/build-all.sh`) пересобирает всё сразу: приложение для обоих Mac и Windows и расширение. Файлы с понятными именами появляются в `dist/friends/`, установленное приложение она не трогает.
+Задача «build-all» (`sh tools/build-all.sh`) пересобирает всё сразу: приложение для обоих Mac и Windows и расширение. Файлы с понятными именами появляются в `dist/builds/`, установленное приложение она не трогает.
 
-Обе сборки делаются и на Mac. На GitHub это умеет workflow «Desktop»: запускается вручную или тегом `desktop-v*`, готовые файлы лежат в артефактах запуска.
+Обе сборки делаются и на Mac. На GitHub их собирает workflow «Release» при мерже в `main`, готовые файлы — на странице [загрузок](../docs/DOWNLOADS.md).
 
 ## Первый запуск собранного приложения
 
@@ -59,7 +59,7 @@ npm run dist:win        # dist/babushkin-jam Setup <версия>.exe
 
 ## Как устроено
 
-Код джема не копируется: он лежит в `extension/`, а `scripts/bundle.js` собирает из него `generated/`.
+Код джема не копируется: он лежит в `shared/`, попап — в `extension/`, а `scripts/bundle.js` собирает из них `generated/`.
 
 | Файл | Что делает |
 | --- | --- |
@@ -74,7 +74,7 @@ npm run dist:win        # dist/babushkin-jam Setup <версия>.exe
 | `src/settings/` | дополнение к попапу расширения: из него `bundle.js` собирает настройки |
 | `scripts/make-icons.js` | рисует иконки в `assets/`, запускается вручную |
 
-Правка в `extension/` попадает в приложение после следующего `npm start` или сборки. Чтобы пользователи получили исправление `page.js`, нужно выпустить новую версию приложения: автообновления пока нет.
+Правка в `shared/` или попапе попадает в приложение после следующего `npm start` или сборки. Чтобы пользователи получили исправление `page.js`, нужно выпустить новую версию приложения: автообновления пока нет.
 
 ## Отличия от расширения
 

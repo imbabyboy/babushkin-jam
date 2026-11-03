@@ -25,11 +25,11 @@ const STATIC_FILES = {
   '/fonts/golos-latin.woff2': ['fonts/golos-latin.woff2', 'font/woff2'],
 };
 
-// В контейнере шрифты лежат рядом с сервером, при разработке берём их из расширения, чтобы не хранить копию.
+// В контейнере шрифты лежат рядом с сервером, при разработке берём их из shared/, чтобы не хранить копию.
 function staticFile(relative) {
   const local = here('./' + relative);
   if (existsSync(local)) return readFileSync(local);
-  const shared = here('../extension/' + relative);
+  const shared = here('../../shared/' + relative);
   return existsSync(shared) ? readFileSync(shared) : null;
 }
 

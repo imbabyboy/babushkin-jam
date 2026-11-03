@@ -14,9 +14,9 @@ DIR=/opt/song-links
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-(cd links && tar -cf - --exclude test --exclude '*.db*' --exclude .env .) | tar -xf - -C "$TMP"
+(cd services/links && tar -cf - --exclude test --exclude '*.db*' --exclude .env .) | tar -xf - -C "$TMP"
 mkdir -p "$TMP/fonts"
-cp extension/fonts/golos-*.woff2 "$TMP/fonts/"
+cp shared/fonts/golos-*.woff2 "$TMP/fonts/"
 cp deploy/Dockerfile.links "$TMP/Dockerfile"
 
 ssh "$JAM_HOST" "mkdir -p $DIR/app && touch $DIR/.env && chmod 600 $DIR/.env && find $DIR/app -mindepth 1 -delete"
