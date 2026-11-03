@@ -4,7 +4,7 @@ dist/
 .env
 # макеты из Claude Design — локально, в них адрес сервера
 babushkin-jam-ui-mockups/
-# приложение: generated/ собирается из extension/
-desktop/generated/
+# приложение: generated/ собирается из shared/ и extension/
+native/generated/
 # кэш сервиса ссылок
-links/*.db*
+services/links/*.db*

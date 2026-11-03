@@ -27,7 +27,7 @@ JAM_HTTP_PUBLISH="${JAM_HTTP_PUBLISH:-80}"
 DIR=/opt/yandex-jam
 
 ssh "$JAM_HOST" "mkdir -p $DIR"
-scp server/server.js server/privacy.html server/package.json server/package-lock.json deploy/Dockerfile "$JAM_HOST:$DIR/"
+scp services/rooms/server.js services/rooms/privacy.html services/rooms/package.json services/rooms/package-lock.json deploy/Dockerfile "$JAM_HOST:$DIR/"
 # в Caddyfile домен и порт подставляются при деплое
 sed -e "/^#/!s|{\$JAM_DOMAIN}|$JAM_DOMAIN|" -e "/^#/!s|{\$JAM_HTTPS_PORT}|$JAM_HTTPS_PORT|" deploy/Caddyfile | ssh "$JAM_HOST" "cat > $DIR/Caddyfile"
 

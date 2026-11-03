@@ -21,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: desktop
+        working-directory: native
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: native/package-lock.json
 
       - name: Зависимости
         run: npm ci
@@ -41,6 +41,6 @@ jobs:
         with:
           name: babushkin-jam-${{ matrix.os }}
           path: |
-            desktop/dist/*.dmg
-            desktop/dist/*.exe
+            native/dist/*.dmg
+            native/dist/*.exe
           if-no-files-found: error

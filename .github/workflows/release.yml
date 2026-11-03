@@ -31,4 +31,4 @@ jobs:
         with:
           name: babushkin-jam ${{ github.ref_name }}
           body_path: notes.md
-          files: dist/babushkin-jam.zip
+          files: dist/builds/babushkin-jam-extension-*.zip

@@ -4,7 +4,7 @@
 
 ## Пакет
 
-- Архив: `dist/babushkin-jam.zip` — `sh tools/build.sh` или задача VS Code «Расширение: собрать zip». Только он: папка `extension/` — локальная версия с голубой иконкой.
+- Архив: `dist/builds/babushkin-jam-extension-<версия>.zip` — `sh tools/build.sh` или задача VS Code «Расширение: собрать zip». Только он: папка `dist/extension/` — локальная версия с голубой иконкой.
 - Видимость (Distribution → Visibility): **Unlisted** — по ссылке, или **Private** — только для указанных почт.
 
 ## Store listing
@@ -99,4 +99,4 @@ https://<JAM_DOMAIN>:9443/privacy
 
 1. Задеплоить сервер, чтобы страница `/privacy` открывалась: `sh deploy/deploy.sh`.
 2. Проверить, что `https://<JAM_DOMAIN>:9443/privacy` открывается.
-3. Собрать свежий `dist/babushkin-jam.zip`.
+3. Собрать свежий `dist/builds/babushkin-jam-extension-<версия>.zip`.

@@ -1,11 +1,11 @@
 # Свой сервер
 
-Сервер комнат — [`server/server.js`](../server/server.js): Node.js 18+ и пакет `ws`. Состояние хранится только в памяти.
+Сервер комнат — [`services/rooms/server.js`](../services/rooms/server.js): Node.js 18+ и пакет `ws`. Состояние хранится только в памяти.
 
 ## Локально
 
 ```sh
-cd server
+cd services/rooms
 npm install
 npm start               # ws://localhost:8787
 PORT=9000 npm start     # другой порт
@@ -72,10 +72,10 @@ sh deploy/deploy-links.sh
 
 Страница: `https://<JAM_DOMAIN>:<JAM_HTTPS_PORT>/links/`. Сервер комнат скрипт не перезапускает, Caddy только перечитывает настройки, поэтому активные комнаты могут на секунду переподключиться.
 
-Ключи API лежат на сервере в `/opt/song-links/.env`, список — в [`links/.env.example`](../links/.env.example). Кэш хранится на томе Docker `song-links-data`.
+Ключи API лежат на сервере в `/opt/song-links/.env`, список — в [`services/links/.env.example`](../services/links/.env.example). Кэш хранится на томе Docker `song-links-data`.
 
 `deploy/deploy.sh` кладёт на сервер `Caddyfile` из текущей ветки. Если в ней нет пути `/links/`, сервис пропадёт снаружи.
 
 ## Сервер по умолчанию в расширении
 
-Адрес, к которому расширение подключается после установки, задан в `SERVER_URL` в [`extension/src/shared.js`](../extension/src/shared.js). Чтобы раздавать сборку со своим сервером, поменяйте его там. Если меняете адрес у уже установленных копий, поднимите `SETTINGS_VERSION` и добавьте миграцию в `ensureSettings()`.
+Адрес, к которому расширение подключается после установки, задан в `SERVER_URL` в [`shared/shared.js`](../shared/shared.js). Чтобы раздавать сборку со своим сервером, поменяйте его там. Если меняете адрес у уже установленных копий, поднимите `SETTINGS_VERSION` и добавьте миграцию в `ensureSettings()`.

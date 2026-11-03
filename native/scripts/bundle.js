@@ -1,4 +1,4 @@
-// Собирает desktop/generated/ из кода расширения: сам код джема живёт только в extension/.
+// Собирает native/generated/: код джема живёт в shared/, попап — в extension/, копий в приложении нет.
 // Preload в песочнице Electron не может подключать соседние файлы, поэтому склеиваем их в один.
 
 const fs = require('fs');
@@ -6,9 +6,11 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const EXT = path.join(ROOT, '..', 'extension');
+const SHARED = path.join(ROOT, '..', 'shared');
 const OUT = path.join(ROOT, 'generated');
 
 const readExt = (file) => fs.readFileSync(path.join(EXT, file), 'utf8');
+const readShared = (file) => fs.readFileSync(path.join(SHARED, file), 'utf8');
 const readSrc = (file) => fs.readFileSync(path.join(ROOT, 'src', file), 'utf8');
 
 // Подстановка функцией: в коде расширения есть «$&» и подобное, replace со строкой их бы исказил.
@@ -27,15 +29,15 @@ const shim = readSrc('preload/chrome-shim.js');
 
 let music = readSrc('preload/music.js');
 music = fill(music, '/*__CHROME_SHIM__*/', shim);
-music = fill(music, '/*__PAGE_JS__*/', JSON.stringify(readExt('src/page.js')));
-music = fill(music, '/*__EXTENSION_SCRIPTS__*/', [readExt('src/shared.js'), readSrc('preload/no-overlay.js'), readExt('src/content.js')].join('\n'));
+music = fill(music, '/*__PAGE_JS__*/', JSON.stringify(readShared('page.js')));
+music = fill(music, '/*__EXTENSION_SCRIPTS__*/', [readShared('shared.js'), readSrc('preload/no-overlay.js'), readShared('content.js')].join('\n'));
 fs.writeFileSync(path.join(OUT, 'preload-music.js'), music);
 
 fs.writeFileSync(path.join(OUT, 'preload-app.js'), fill(readSrc('preload/app.js'), '/*__CHROME_SHIM__*/', shim));
 
 // shared.js нужен и окнам приложения: коды комнат, ссылка-приглашение, шрифты, цвета участников.
-fs.copyFileSync(path.join(EXT, 'src/shared.js'), path.join(OUT, 'shared.js'));
-fs.cpSync(path.join(EXT, 'fonts'), path.join(OUT, 'fonts'), { recursive: true });
+fs.copyFileSync(path.join(SHARED, 'shared.js'), path.join(OUT, 'shared.js'));
+fs.cpSync(path.join(SHARED, 'fonts'), path.join(OUT, 'fonts'), { recursive: true });
 
 // Окно настроек — попап расширения с дополнением для приложения (src/settings/).
 const SETTINGS = path.join(OUT, 'settings');
