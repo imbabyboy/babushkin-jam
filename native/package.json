@@ -19,7 +19,7 @@
     "appId": "io.github.imbabyboy.babushkin-jam",
     "productName": "babushkin-jam",
     "directories": {
-      "output": "dist"
+      "output": "../dist/native"
     },
     "files": [
       "src/**",

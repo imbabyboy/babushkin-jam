@@ -39,16 +39,16 @@
 cd native
 npm install
 npm start               # запуск для разработки
-npm run pack:mac-arm64  # dist/mac-arm64/babushkin-jam.app (Apple Silicon), без установщика
-npm run dist:mac        # dist/babushkin-jam-<версия>-arm64.dmg и dist/babushkin-jam-<версия>.dmg (Intel)
-npm run dist:win        # dist/babushkin-jam Setup <версия>.exe
+npm run pack:mac-arm64  # ../dist/native/mac-arm64/babushkin-jam.app (Apple Silicon), без установщика
+npm run dist:mac        # ../dist/native/babushkin-jam-<версия>-arm64.dmg и babushkin-jam-<версия>.dmg (Intel)
+npm run dist:win        # ../dist/native/babushkin-jam Setup <версия>.exe
 ```
 
 В VS Code (`Cmd+Shift+B`) задача «build» для Mac на Apple Silicon закрывает запущенную копию, собирает текущий код, заменяет `/Applications/babushkin-jam.app` и открывает приложение. Копию она закрывает заранее, потому что вторая копия не запускается, а сборка заменяет папку приложения. Вход и настройки при этом сохраняются: они лежат не в самом приложении.
 
 Задача «build-all» (`sh tools/build-all.sh`) пересобирает всё сразу: приложение для обоих Mac и Windows и расширение. Файлы с понятными именами появляются в `dist/builds/`, установленное приложение она не трогает.
 
-Обе сборки делаются и на Mac. На GitHub это умеет workflow «Desktop»: запускается вручную или тегом `desktop-v*`, готовые файлы лежат в артефактах запуска.
+Обе сборки делаются и на Mac. На GitHub их собирает workflow «Release» при мерже в `main`, готовые файлы — на странице [загрузок](../docs/DOWNLOADS.md).
 
 ## Первый запуск собранного приложения
 

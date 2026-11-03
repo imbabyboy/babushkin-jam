@@ -9,7 +9,7 @@ APP_VERSION=$(node -p "require('./native/package.json').version")
 OUT=dist/builds
 
 # Старые версии убираем, чтобы случайно не отправить устаревший файл.
-rm -rf native/dist "$OUT"
+rm -rf dist/native "$OUT"
 sh tools/build.sh
 
 (
@@ -19,9 +19,9 @@ sh tools/build.sh
   npm run dist:win
 )
 
-cp "native/dist/babushkin-jam-$APP_VERSION-arm64.dmg" "$OUT/babushkin-jam-$APP_VERSION-mac-apple-silicon.dmg"
-cp "native/dist/babushkin-jam-$APP_VERSION.dmg" "$OUT/babushkin-jam-$APP_VERSION-mac-intel.dmg"
-cp "native/dist/babushkin-jam Setup $APP_VERSION.exe" "$OUT/babushkin-jam-$APP_VERSION-windows.exe"
+cp "dist/native/babushkin-jam-$APP_VERSION-arm64.dmg" "$OUT/babushkin-jam-$APP_VERSION-mac-apple-silicon.dmg"
+cp "dist/native/babushkin-jam-$APP_VERSION.dmg" "$OUT/babushkin-jam-$APP_VERSION-mac-intel.dmg"
+cp "dist/native/babushkin-jam Setup $APP_VERSION.exe" "$OUT/babushkin-jam-$APP_VERSION-windows.exe"
 
 echo
 echo "Готово: $OUT"

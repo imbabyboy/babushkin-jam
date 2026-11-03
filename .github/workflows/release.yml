@@ -1,34 +1,124 @@
 name: Release
 
+# Мерж в main, который меняет расширение или приложение, собирает их и обновляет релиз.
+# Номер релиза — версия расширения: новая версия создаёт новый релиз, при той же заменяются файлы.
 on:
+  workflow_dispatch:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'extension/**'
+      - 'shared/**'
+      - 'native/**'
+      - 'assets/**'
+      - 'tools/build*'
+      - '.github/workflows/release.yml'
 
 permissions:
-  contents: write
+  contents: read
+
+# Мержи публикуются по очереди, иначе старая сборка могла бы заменить более новую.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  extension:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Версия тега совпадает с manifest.json
-        run: |
-          v=$(node -p "require('./extension/manifest.json').version")
-          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "тег $GITHUB_REF_NAME, а в manifest.json $v"; exit 1; }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - name: Сборка zip
         run: sh tools/build.sh
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: extension
+          path: dist/builds/*.zip
+          if-no-files-found: error
+
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+          - os: windows-latest
+            script: dist:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Зависимости
+        working-directory: native
+        run: npm ci
+
+      - name: Сборка
+        working-directory: native
+        run: npm run ${{ matrix.script }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.os }}
+          path: |
+            dist/native/*.dmg
+            dist/native/*.exe
+          if-no-files-found: error
+
+  publish:
+    needs: [extension, native]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Версии
+        run: |
+          echo "EXT=$(jq -r .version extension/manifest.json)" >> "$GITHUB_ENV"
+          echo "APP=$(jq -r .version native/package.json)" >> "$GITHUB_ENV"
+
+      # Имена без версии: ссылки вида releases/latest/download/<файл> не меняются от релиза к релизу.
+      - name: Имена файлов
+        working-directory: out
+        run: |
+          mv "babushkin-jam-extension-$EXT.zip" babushkin-jam-extension.zip
+          mv "babushkin-jam-$APP-arm64.dmg" babushkin-jam-mac-apple-silicon.dmg
+          mv "babushkin-jam-$APP.dmg" babushkin-jam-mac-intel.dmg
+          mv "babushkin-jam Setup $APP.exe" babushkin-jam-windows.exe
+          ls -l
+
       - name: Заметки из CHANGELOG.md
         run: |
-          v="${GITHUB_REF_NAME#v}"
-          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^(## )?\[/ {f=0} f' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "См. CHANGELOG.md" > notes.md
+          section() { awk -v h="## [$1]" 'index($0, h) == 1 {f=1; next} /^(## )?\[/ {f=0} f' CHANGELOG.md; }
+          body=$(section "$EXT")
+          [ -n "$body" ] || body=$(section Unreleased)
+          printf 'Расширение %s, приложение %s. Коммит %s.\n\n%s\n' "$EXT" "$APP" "$GITHUB_SHA" "$body" > notes.md
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          name: babushkin-jam ${{ github.ref_name }}
-          body_path: notes.md
-          files: dist/builds/babushkin-jam-extension-*.zip
+      - name: Публикация
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$EXT"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" out/* --clobber
+            gh release edit "$tag" --notes-file notes.md --latest
+          else
+            gh release create "$tag" out/* --target "$GITHUB_SHA" --title "babushkin-jam $tag" --notes-file notes.md --latest
+          fi
