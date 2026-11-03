@@ -93,7 +93,10 @@ test('зависший сервис отваливается по таймаут
     return new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason)));
   };
   const started = Date.now();
+  // Таймер AbortSignal.timeout не держит процесс: без этого Node 22 решит, что ждать нечего, и отменит тесты.
+  const keepAlive = setTimeout(() => {}, 1000);
   const r = byService(await setup(doFetch, { providerTimeoutMs: 50 }).run(q({ singer: 'A', songname: 'Song' })));
+  clearTimeout(keepAlive);
   assert.deepEqual([r.apple.status, r.apple.reason], ['unavailable', 'timeout']);
   assert.equal(r.deezer.status, 'found');
   assert.ok(Date.now() - started < 1000);
