@@ -1,13 +1,13 @@
-// Попап по макету «Babushkin Jam UI»: лобби (имя, «Создать комнату», сервер в одну строку, вход по коду)
-// и комната (ссылка, участники, трек с кнопками плеера). Синхронизация и диагностика — в меню под
+// Попап по макету «Babushkin Jam UI»: плеер сверху, лобби (имя, «Создать комнату», сервер в одну строку, вход по коду)
+// и комната (участники, код, ссылка). Синхронизация и диагностика — в меню под
 // гаечным ключом; глаз — показать/убрать виджет; шестерёнка — настройки (имя, где показывать виджет).
 // Логики джема здесь нет: попап пишет настройки в chrome.storage.local и спрашивает статус у вкладки.
 
 const DEFAULTS = YJam.DEFAULTS;
 const YM_URLS = YJam.YM_URLS;
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const ICON_PAUSE = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
-const ICON_PLAY = '<path d="M7 5l12 7-12 7z"/>';
+const ICON_PAUSE = '<path d="M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z"/>';
+const ICON_PLAY = '<path d="M7 4.5v15L20 12z"/>';
 const ICON_OPEN = '<path d="M14 5h5v5"/><path d="M19 5l-8 8"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>';
 const ICON_CROWN = '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>';
 const ICON_EDIT = '<path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z"/><path d="M14 8l2 2"/>';
@@ -258,8 +258,12 @@ function renderMembers(room, clientId) {
   $('alone').hidden = members.length !== 1;
 }
 
+let roomCode = '';
+let codeCopied = false;
+
 function renderRoom(settings, st) {
-  $('room-code').textContent = settings.room;
+  roomCode = settings.room;
+  if (!codeCopied) $('room-code').textContent = roomCode;
   $('invite-link').textContent = YJam.inviteLink(settings.room).replace(/^https:\/\//, '');
 
   const [kind, text] = roleLine(st);
@@ -272,24 +276,25 @@ function renderRoom(settings, st) {
   if (!renaming) renderMembers(room, st && st.clientId);
 }
 
-// Плашка трека с кнопками плеера: в комнате — трек комнаты, в лобби — что играет во вкладке.
+// Плеер сверху: в комнате — трек комнаты, в лобби — что играет во вкладке.
 function renderNow(inRoom, st, settings) {
-  const now = $('now');
-  const anchor = inRoom ? $('warning') : $('no-tab-lobby');
-  if (now.nextElementSibling !== anchor) anchor.before(now);
-
   const room = inRoom && st && st.state;
   const p = st && st.player && st.player.ok ? st.player : null;
   const t = (room && room.track) || (p && p.track);
-  now.hidden = !st || !t;
-  if (now.hidden) return;
-  $('now-text').textContent = (t.artist ? t.artist + ' — ' : '') + (t.title || 'название неизвестно');
-  const paused = p ? p.paused : room.paused;
+  $('now-title').textContent = t ? t.title || 'название неизвестно' : st ? 'Ничего не играет' : 'Яндекс Музыка не открыта';
+  $('now-artist').textContent = (t && t.artist) || '';
+  const cover = t && t.cover;
+  if (cover && $('now-cover').getAttribute('src') !== cover) $('now-cover').src = cover;
+  $('now-cover').hidden = !cover;
+
+  for (const b of document.querySelectorAll('.ctrl[data-action="prev"], .ctrl[data-action="next"]')) b.disabled = !t;
+  $('toggle').disabled = !st;
+  const paused = p ? p.paused : room ? room.paused : true;
   $('now-icon').innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
   // пока плей ни разу не нажимали на самой Яндекс Музыке, отсюда её не включить —
   // вместо «плей» кнопка «перейти во вкладку»
-  const locked = paused && st.canPlay === false;
-  $('toggle').classList.toggle('open', locked);
+  const locked = paused && st && st.canPlay === false;
+  $('toggle').classList.toggle('open', !!locked);
   if (locked) $('now-icon').innerHTML = ICON_OPEN;
   const pip = settings.widgetEverywhere && !settings.widgetHidden;
   $('pip').setAttribute('aria-pressed', String(pip));
@@ -426,6 +431,8 @@ async function refresh() {
   $('head-lobby').hidden = inRoom || inSettings;
   $('head-room').hidden = !inRoom || inSettings;
   $('head-settings').hidden = !inSettings;
+  $('now').hidden = inSettings;
+  $('now-sep').hidden = inSettings;
   renderWidgetButton(settings.widgetHidden);
 
   const st = await askTab('yjam:status');
@@ -476,13 +483,23 @@ $('leave').onclick = async () => {
 
 let copiedTimer = null;
 $('copy').onclick = async () => {
-  await navigator.clipboard.writeText(YJam.inviteLink($('room-code').textContent));
+  await navigator.clipboard.writeText(YJam.inviteLink(roomCode));
   $('copy').classList.add('done');
   $('copy-label').textContent = 'Ссылка скопирована';
   clearTimeout(copiedTimer);
   copiedTimer = setTimeout(() => {
     $('copy').classList.remove('done');
     $('copy-label').textContent = 'Скопировать ссылку';
+  }, 1000);
+};
+
+$('room-code').onclick = async () => {
+  await navigator.clipboard.writeText(roomCode);
+  codeCopied = true;
+  $('room-code').textContent = 'Скопировано';
+  setTimeout(() => {
+    codeCopied = false;
+    $('room-code').textContent = roomCode;
   }, 1000);
 };
 

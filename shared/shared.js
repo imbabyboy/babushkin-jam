@@ -57,6 +57,9 @@ var YJam = (() => {
     return LINKS_URL + '?' + params;
   }
 
+  const trackLink = ({ id, albumId }) =>
+    'https://music.yandex.ru' + (albumId ? `/album/${albumId}/track/${id}` : `/track/${id}`);
+
   function inviteLink(code) {
     return `https://music.yandex.ru/?jam=${encodeURIComponent(code)}`;
   }
@@ -116,7 +119,7 @@ var YJam = (() => {
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {
-    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, ensureSettings,
+    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, trackLink, ensureSettings,
     loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

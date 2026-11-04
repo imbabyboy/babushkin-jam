@@ -12,7 +12,8 @@
 
   $('mini').onclick = () => desktop.setMode('mini');
   $('tray').onclick = () => desktop.setMode('tray');
-  $('jam').onclick = () => desktop.toggleSettings();
+  $('jam').onclick = () => desktop.toggleSettings('main');
+  $('settings').onclick = () => desktop.toggleSettings('settings');
   $('update').onclick = () => desktop.installUpdate();
 
   desktop.info().then(({ version }) => { $('version').textContent = `v${version}`; });
@@ -38,14 +39,22 @@
   desktop.onUpdateState(showUpdate);
   desktop.updateState().then(showUpdate);
 
-  desktop.onSettingsState(({ open }) => $('jam').setAttribute('aria-expanded', String(open)));
+  desktop.onSettingsState(({ open, page }) => {
+    $('jam').setAttribute('aria-expanded', String(open && page === 'main'));
+    $('settings').setAttribute('aria-pressed', String(open && page === 'settings'));
+  });
 
-  // Настройки открываются под кнопкой, а её положение знает только эта страница.
-  function reportAnchor() {
-    const { left, right, top, bottom } = $('jam').getBoundingClientRect();
-    desktop.setJamAnchor({ left, right, top, bottom });
+  // Джем и настройки открываются под своими кнопками, а их положение знает только эта страница.
+  function rectOf(id) {
+    const { left, right, top, bottom } = $(id).getBoundingClientRect();
+    return { left, right, top, bottom };
   }
-  new ResizeObserver(reportAnchor).observe($('jam'));
+  function reportAnchor() {
+    desktop.setToolbarAnchors({ main: rectOf('jam'), settings: rectOf('settings') });
+  }
+  // Кнопка настроек стоит справа и сдвигается вместе с шириной окна.
+  const anchorWatcher = new ResizeObserver(reportAnchor);
+  for (const node of [$('jam'), document.body]) anchorWatcher.observe(node);
   reportAnchor();
 
   function el(tag, cls, text) {

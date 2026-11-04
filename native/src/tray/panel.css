@@ -1,0 +1,14 @@
+/* Панель под иконкой в трее: стили попапа и настроек плюс то, чего там нет. На macOS под ней размытие окна. */
+html[data-host="tray"] { background: transparent; }
+html[data-host="tray"] body { user-select: none; }
+html[data-host="tray"][data-platform="macOS"] body { background: rgba(28, 28, 28, .62); }
+
+/* Крестик не нужен: панель закрывается кликом мимо. Синхронизация только в комнате. */
+html[data-host="tray"] #settings-close { display: none; }
+#tray-resync { display: none; }
+html[data-host="tray"] #tray-resync { display: flex; }
+html[data-host="tray"] #head-lobby:not([hidden]) ~ .head-btns #tray-resync { display: none; }
+
+.tray-footer { display: flex; justify-content: space-between; }
+.tray-link { color: var(--soft); font-size: 12.5px; }
+.tray-link:hover { color: var(--fg); }

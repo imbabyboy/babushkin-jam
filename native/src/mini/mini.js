@@ -11,9 +11,8 @@
   const COPY_ICONS = '<svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>'
     + '<svg class="done-icon" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const $ = (id) => document.getElementById(id);
-  let openPanel = null; // 'jam', 'queue' или ничего
+  let openPanel = null; // 'queue' или ничего
   let lastTrackId = null;
-  let current = null;
   let duration = 0;
   let pressedUntil = 0;
   let pressedPaused = true;
@@ -54,6 +53,21 @@
     $('progress').disabled = !track || !duration;
     $('progress-fill').style.width = duration ? Math.min(100, (position / duration) * 100) + '%' : '0';
     $('time').textContent = track && duration ? formatTime(position) + ' / ' + formatTime(duration) : '- / -';
+    renderModes(player, track);
+  }
+
+  const REPEAT_TITLES = { none: 'Повтор: выключен', context: 'Повтор: вся очередь', one: 'Повтор: один трек' };
+
+  function renderModes(player, track) {
+    const modes = (player && player.modes) || { shuffle: false, repeat: 'none', canShuffle: false, canRepeat: false };
+    $('shuffle').disabled = !track || !modes.canShuffle;
+    $('shuffle').setAttribute('aria-pressed', String(modes.shuffle));
+    // Кнопка серая по решению сайта: объясняем, чтобы это не выглядело поломкой.
+    $('shuffle').title = !track || modes.canShuffle ? 'Случайный порядок' : 'Сайт не даёт перемешать эту очередь';
+    $('repeat').disabled = !track || !modes.canRepeat;
+    $('repeat').dataset.mode = modes.repeat;
+    $('repeat').setAttribute('aria-pressed', String(modes.repeat !== 'none'));
+    $('repeat').title = REPEAT_TITLES[modes.repeat] || REPEAT_TITLES.none;
   }
 
   // Подсказка важнее всего остального: она объясняет, почему не играет.
@@ -77,57 +91,13 @@
     $('notice').dataset.action = action || '';
   }
 
-  const CONN_TEXT = { open: 'на связи', connecting: 'подключаемся…', reconnecting: 'нет связи, пробуем ещё', off: 'не подключено' };
-
   function renderJam(status) {
-    const roomCode = status && status.room;
     const members = (status && status.state && status.state.members) || [];
-    $('jam-label').textContent = roomCode ? 'Джем · ' + (members.length || 1) : 'Джем';
+    $('jam-label').textContent = status && status.room ? 'Джем · ' + (members.length || 1) : 'Джем';
     $('jam').classList.toggle('alert', !!(status && status.warning));
-    $('lobby').hidden = !!roomCode;
-    $('room').hidden = !roomCode;
-    if (!roomCode) return;
-
-    $('room-code').textContent = roomCode;
-    $('conn').textContent = CONN_TEXT[status.conn] || '';
-    $('conn').classList.toggle('ok', status.conn === 'open');
-    renderMembers(members, status);
-  }
-
-  function renderMembers(members, status) {
-    const list = $('members');
-    list.replaceChildren(...members.map((m, i) => {
-      const li = document.createElement('li');
-      li.className = 'member';
-
-      const avatar = document.createElement('span');
-      avatar.className = 'avatar';
-      avatar.style.background = YJam.avatarColor(i);
-      avatar.textContent = YJam.initial(m.name);
-
-      const name = document.createElement('span');
-      name.className = 'member-name';
-      name.textContent = m.name;
-      if (m.id === status.clientId) {
-        const you = document.createElement('span');
-        you.className = 'you';
-        you.textContent = 'вы';
-        name.append(you);
-      }
-      li.append(avatar, name);
-
-      if (status.state.leaderId === m.id) {
-        const host = document.createElement('span');
-        host.className = 'host';
-        host.textContent = 'ведущий';
-        li.append(host);
-      }
-      return li;
-    }));
   }
 
   function render(data) {
-    current = data;
     const { page, status } = data;
     const player = status && status.player && status.player.ok ? status.player : null;
     renderTrack(player, page);
@@ -149,24 +119,6 @@
     desktop.setHeight(height);
   }
 
-  // Вставили ссылку-приглашение — берём из неё код.
-  function readCode(text) {
-    try {
-      const jam = new URL(text.trim()).searchParams.get('jam');
-      if (jam) return YJam.normalizeCode(jam);
-    } catch (e) {
-      // это не ссылка, а сам код
-    }
-    return YJam.normalizeCode(text);
-  }
-
-  async function joinRoom() {
-    const code = readCode($('code').value);
-    if (!code) { $('code').focus(); return; }
-    await chrome.storage.local.set({ room: code });
-    $('code').value = '';
-  }
-
   $('toggle').onclick = () => {
     pressedPaused = !shownPaused;
     pressedUntil = Date.now() + PRESS_HOLD_MS;
@@ -175,13 +127,13 @@
   };
   $('prev').onclick = () => desktop.control('prev');
   $('next').onclick = () => desktop.control('next');
+  $('shuffle').onclick = () => desktop.control('shuffle');
+  $('repeat').onclick = () => desktop.control('repeat');
   $('full').onclick = () => desktop.setMode('full');
   $('hide').onclick = () => desktop.setMode('tray');
-  // Раскрыто что-то одно: комната есть и в самих настройках, а вместе они не поместились бы на экран.
+  // Раскрыто что-то одно: плейлист и настройки вместе не поместились бы на экран.
   function setPanel(name) {
     openPanel = name;
-    $('panel').hidden = name !== 'jam';
-    $('jam').setAttribute('aria-expanded', String(name === 'jam'));
     $('queue-panel').hidden = name !== 'queue';
     $('queue').setAttribute('aria-expanded', String(name === 'queue'));
     clearInterval(queueTimer);
@@ -212,9 +164,6 @@
   let scrolledAt = 0;
   let programScroll = false;
 
-  const trackLink = ({ id, albumId }) =>
-    'https://music.yandex.ru' + (albumId ? `/album/${albumId}/track/${id}` : `/track/${id}`);
-
   function siteButton(track) {
     const button = document.createElement('button');
     button.className = 'queue-action queue-site';
@@ -237,7 +186,7 @@
     let timer = null;
     button.onclick = async (e) => {
       e.stopPropagation(); // клик по строке включил бы трек
-      await desktop.copy(trackLink(track));
+      await desktop.copy(YJam.trackLink(track));
       button.classList.add('copied');
       clearTimeout(timer);
       timer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
@@ -368,12 +317,24 @@
   chrome.storage.local.get({ miniOnTop: true }).then((p) => showOnTop(p.miniOnTop));
   chrome.storage.onChanged.addListener((changes) => { if (changes.miniOnTop) showOnTop(changes.miniOnTop.newValue); });
 
-  $('settings').onclick = () => {
+  // ---------- вид плеера ----------
+  function showView(view) {
+    document.body.dataset.view = view;
+    // В нано нет кнопок, которыми панель можно было бы закрыть.
+    if (view === 'nano' && openPanel) setPanel(null);
+    fitWindow();
+  }
+  chrome.storage.local.get({ miniView: 'micro' }).then((p) => showView(p.miniView));
+  chrome.storage.onChanged.addListener((changes) => { if (changes.miniView) showView(changes.miniView.newValue); });
+
+  function openOver(page) {
     setPanel(null);
-    desktop.toggleSettings();
-  };
-  desktop.onSettingsState(({ open, offset }) => {
-    $('settings').setAttribute('aria-pressed', String(open));
+    desktop.toggleSettings(page);
+  }
+  $('settings').onclick = () => openOver('settings');
+  desktop.onSettingsState(({ open, offset, page }) => {
+    $('settings').setAttribute('aria-pressed', String(open && page === 'settings'));
+    $('jam').setAttribute('aria-expanded', String(open && page === 'main'));
     if (open && openPanel) setPanel(null); // настройки открыли из трея
     // Настройки над плеером лежат поверх верхней части окна, сам плеер должен быть ниже них.
     document.body.style.paddingTop = offset + 'px';
@@ -386,19 +347,7 @@
     desktop.seek(((e.clientX - r.left) / r.width) * duration);
   };
 
-  $('jam').onclick = () => togglePanel('jam');
-
-  $('create').onclick = () => chrome.storage.local.set({ room: YJam.randomCode() });
-  $('join').onclick = joinRoom;
-  $('code').onkeydown = (e) => { if (e.key === 'Enter') joinRoom(); };
-  $('leave').onclick = () => chrome.storage.local.set({ room: '' });
-  $('copy').onclick = async () => {
-    const code = current && current.status && current.status.room;
-    if (!code) return;
-    await desktop.copy(YJam.inviteLink(code));
-    $('copy').textContent = 'Скопировано';
-    setTimeout(() => { $('copy').textContent = 'Скопировать ссылку'; }, 1500);
-  };
+  $('jam').onclick = () => openOver('main');
 
   desktop.onStatus(render);
   fitWindow();

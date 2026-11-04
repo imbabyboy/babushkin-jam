@@ -47,13 +47,15 @@ fs.copyFileSync(path.join(EXT, 'popup/popup.css'), path.join(SETTINGS, 'popup.cs
 let popupHtml = readExt('popup/popup.html');
 popupHtml = patch(popupHtml, '<meta charset="utf-8">', `<meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src yjam-asset:; connect-src ws: wss:">
+    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; font-src yjam-asset:; connect-src ws: wss:">
   <title>babushkin-jam — настройки</title>`);
 popupHtml = patch(popupHtml, '<link rel="stylesheet" href="popup.css">', `<link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="../../src/settings/settings.css">`);
+  <link rel="stylesheet" href="../../src/settings/settings.css">
+  <link rel="stylesheet" href="../../src/tray/panel.css">`);
 popupHtml = patch(popupHtml, '<script src="../src/shared.js"></script>', `<script src="../../src/mini/chrome-alias.js"></script>
   <script src="../shared.js"></script>`);
 popupHtml = patch(popupHtml, '<script src="popup.js"></script>', `<script src="popup.js"></script>
+  <script src="../../src/tray/panel.js"></script>
   <script src="../../src/settings/settings.js"></script>`);
 popupHtml = patch(popupHtml, 'Неофициальное расширение, не связано с Яндексом.', 'Неофициальное приложение, не связано с Яндексом.');
 fs.writeFileSync(path.join(SETTINGS, 'popup.html'), popupHtml);
@@ -64,6 +66,8 @@ popupJs = patch(popupJs, 'Откройте Яндекс Музыку (music.yand
 popupJs = patch(popupJs, 'Chrome не включает звук, пока на странице Яндекс Музыки ни разу не кликнули. Кликните там в любом месте — дальше кнопки будут работать.', 'Звук не включился. Кликните в любом месте главного окна.');
 popupJs = patch(popupJs, "'нет вкладки Яндекс Музыки'];", "'Яндекс Музыка не открыта'];");
 popupJs = patch(popupJs, "{ error: 'нет вкладки Яндекс Музыки' }", "{ error: 'Яндекс Музыка не открыта' }");
+// Запрет на плей до первого клика есть только у вкладки браузера, приложение включает музыку само.
+popupJs = patch(popupJs, 'const locked = paused && st && st.canPlay === false;', 'const locked = false;');
 fs.writeFileSync(path.join(SETTINGS, 'popup.js'), popupJs);
 
 console.log('generated/: расширение ' + JSON.parse(readExt('manifest.json')).version);

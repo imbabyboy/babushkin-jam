@@ -49,6 +49,16 @@ var YJamOverlay = (() => {
     .ctrl.open svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; }
     .ctrl svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
     .ctrl.toggle svg { width: 15px; height: 15px; }
+    /* Как кнопки строки в плейлисте приложения: скопировать ссылку на трек и страница со ссылками в других сервисах. */
+    .track-action {
+      width: 28px; height: 28px; border-radius: 50%; flex: none;
+      display: flex; align-items: center; justify-content: center; color: var(--soft);
+    }
+    .track-action:hover:not(:disabled) { background: #3A3A3A; color: var(--fg); }
+    .track-action:disabled { opacity: .35; cursor: default; }
+    .track-action svg { width: 14px; height: 14px; stroke-width: 2; flex: none; }
+    .track-copy .done-icon, .track-copy.copied .copy-icon { display: none; }
+    .track-copy.copied .done-icon { display: block; color: var(--accent); }
     .vsep { width: 1px; height: 16px; background: #3A3A3A; margin: 0 2px; flex: none; }
     .hide {
       width: 24px; height: 24px; border-radius: 50%; flex: none;
@@ -70,15 +80,14 @@ var YJamOverlay = (() => {
 
     /* ---------- панель ---------- */
     .panel {
-      width: 296px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
+      width: 320px; padding: 14px 18px; display: flex; flex-direction: column; gap: 16px;
       background: var(--bg); border: 1px solid var(--field-line); border-radius: 14px;
       box-shadow: 0 18px 44px rgba(0,0,0,.6);
     }
-    .head { display: flex; align-items: center; justify-content: space-between; }
-    .head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-    .head-left .phones { width: 18px; height: 18px; stroke: var(--accent); stroke-width: 2; flex: none; }
+    .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: -2px; }
+    .head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .code { font: 700 18px/1.2 var(--mono); letter-spacing: .08em; }
-    .title { font-size: 15px; font-weight: 700; }
+    .title { font-size: 17px; font-weight: 700; }
     .badge { font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid #3A3A3A; border-radius: 5px; padding: 1px 5px; }
     .close {
       width: 28px; height: 28px; border-radius: 8px; flex: none;
@@ -87,28 +96,28 @@ var YJamOverlay = (() => {
     .close:hover { background: var(--line); color: var(--fg); }
     .close svg { width: 15px; height: 15px; stroke-width: 2; }
 
-    .section { display: flex; flex-direction: column; gap: 14px; }
+    .section { display: flex; flex-direction: column; gap: 18px; }
     .field { display: flex; flex-direction: column; gap: 6px; }
     .label { font-size: 13px; color: var(--muted); }
     .input {
-      width: 100%; height: 40px; padding: 0 12px; outline: none;
+      width: 100%; height: 42px; padding: 0 12px; outline: none;
       background: var(--field); border: 1px solid var(--field-line); border-radius: 10px;
-      color: var(--fg); font-size: 14.5px;
+      color: var(--fg); font-size: 15px;
     }
     .input::placeholder { color: var(--placeholder); }
     .input:focus { border: 1.5px solid var(--accent); padding: 0 11.5px; }
     .mono { font: 500 14px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
     .row { display: flex; gap: 8px; }
     .row > .input { flex: 1; min-width: 0; }
-    .sep { height: 1px; background: var(--line); }
+    .sep { flex: none; height: 1px; background: var(--line); }
 
     .btn-primary {
-      height: 42px; border-radius: 11px; background: var(--accent); color: #121212;
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      font-size: 14.5px; font-weight: 600;
+      height: 48px; border-radius: 12px; background: var(--accent); color: #121212;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: 16px; font-weight: 600;
     }
     .btn-primary:hover { background: var(--accent-hover); }
-    .btn-primary svg { width: 15px; height: 15px; stroke-width: 2; }
+    .btn-primary svg { width: 17px; height: 17px; stroke-width: 2; }
     .btn-secondary { height: 40px; padding: 0 16px; border-radius: 10px; background: #2E2E2E; font-weight: 600; }
     .btn-secondary:hover { background: #383838; }
     .btn-outline {
@@ -124,25 +133,25 @@ var YJamOverlay = (() => {
     .copy .icon-done, .copy.done .icon-copy { display: none; }
     .copy.done .icon-done { display: block; }
 
-    .members { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
-    .member { display: flex; align-items: center; gap: 10px; height: 32px; }
+    .members { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+    .member { display: flex; align-items: center; gap: 10px; height: 36px; }
     .avatar {
-      width: 24px; height: 24px; border-radius: 50%; flex: none;
+      width: 28px; height: 28px; border-radius: 50%; flex: none;
       display: flex; align-items: center; justify-content: center;
-      color: #121212; font-size: 12px; font-weight: 700;
+      color: #121212; font-size: 13px; font-weight: 700;
     }
-    .member-name { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: baseline; font-size: 14px; }
+    .member-name { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: baseline; font-size: 14.5px; }
     .member-name > span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .you { flex: none; font-size: 12px; color: var(--muted2); }
-    .host { flex: none; display: flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
-    .host svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+    .you { flex: none; font-size: 12.5px; color: var(--muted2); }
+    .host { flex: none; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent); }
+    .host svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
     .edit {
-      flex: none; align-self: center; width: 22px; height: 22px; border-radius: 6px; opacity: 0;
+      flex: none; align-self: center; width: 24px; height: 24px; border-radius: 6px; opacity: 0;
       display: flex; align-items: center; justify-content: center; color: var(--muted2);
     }
     .member:hover .edit, .edit:focus-visible { opacity: 1; }
     .edit:hover { background: var(--line); color: var(--fg); }
-    .edit svg { width: 13px; height: 13px; stroke-width: 2; }
+    .edit svg { width: 14px; height: 14px; stroke-width: 2; }
     .rename { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; }
     .rename .input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border-radius: 7px; font-size: 14px; }
     .rename .input:focus { padding: 0 7.5px; }
@@ -153,13 +162,25 @@ var YJamOverlay = (() => {
     .rename-btn:hover { background: var(--line); color: var(--fg); }
     .rename-btn.ok { color: var(--accent); }
     .rename-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
-    .alone { font-size: 12px; line-height: 1.45; color: var(--muted); padding-top: 4px; }
-    .people { display: flex; flex-direction: column; gap: 2px; }
+    .alone { padding: 8px 10px; border: 1px dashed #3A3A3A; border-radius: 10px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+    .people { display: flex; flex-direction: column; gap: 4px; }
 
-    .now { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; background: #232323; border-radius: 10px; }
-    .now svg { width: 12px; height: 12px; fill: var(--muted2); stroke: none; flex: none; }
-    .now span { font-size: 13px; color: #BDBDBD; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .status { font-size: 12.5px; color: var(--muted); }
+    /* Панель как попап и трей: сверху трек, но без кнопок — они есть на пилюле. */
+    .player { display: flex; align-items: center; gap: 10px; }
+    .player-cover { width: 40px; height: 40px; flex: none; border-radius: 7px; overflow: hidden; background: var(--field); }
+    .player-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .player-text { flex: 1; min-width: 0; }
+    .player-title, .player-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-title { font-size: 13.5px; font-weight: 600; }
+    .player-artist { min-height: 17px; color: var(--muted); font-size: 12px; }
+    .status { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12.5px; color: var(--muted); }
+    .status span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--placeholder); }
+    .dot.ok { background: #5BD18B; }
+    .dot.bad { background: #FF6B6B; }
+    .people-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 4px; }
+    .code-copy { flex: none; color: var(--fg); font: 600 13px var(--mono); letter-spacing: .06em; }
+    .code-copy:hover { color: var(--accent); }
 
     .invite-text { display: flex; flex-direction: column; gap: 2px; }
     /* «Назад на <сайт>» — под виджетом на Яндекс Музыке, если сюда пришли кнопкой с другого сайта */
@@ -184,7 +205,8 @@ var YJamOverlay = (() => {
   const ICON_CHECK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
   const ICON_CLOSE = '<path d="M6 6l12 12M18 6L6 18"/>';
   const ICON_BACK = '<path d="M19 12H5M11 6l-6 6 6 6"/>';
-  const ICON_DOWN = '<path d="M6 9l6 6 6-6"/>';
+  const ICON_COPY = '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>';
+  const ICON_SHARE = '<path d="M14 4h6v6M20 4l-9 9"/><path d="M11 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>';
   const ICON_PREV = '<rect x="5" y="5" width="2.6" height="14" rx="1"/><path d="M19 5.8v12.4a.8.8 0 0 1-1.2.7L9 12.7a.8.8 0 0 1 0-1.4l8.8-6.2a.8.8 0 0 1 1.2.7z"/>';
   const ICON_OPEN = '<path d="M14 5h5v5"/><path d="M19 5l-8 8"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>';
   const ICON_NEXT = '<rect x="16.4" y="5" width="2.6" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z"/>';
@@ -193,12 +215,20 @@ var YJamOverlay = (() => {
   const HTML = `
     <div class="wrap">
       <div class="panel" hidden>
-        <div class="head">
-          <div data-el="head-room" class="head-left">${svg(PHONES, 'phones')}<span data-el="room-code" class="code"></span></div>
-          <div data-el="head-lobby" class="head-left">
-            ${svg(PHONES, 'phones')}<span class="title">babushkin-jam</span><span data-el="badge" class="badge" hidden>local</span>
+        <div data-el="player" class="player">
+          <div class="player-cover"><img data-el="now-cover" alt="" hidden></div>
+          <div class="player-text">
+            <div data-el="now-title" class="player-title"></div>
+            <div data-el="now-artist" class="player-artist"></div>
           </div>
-          <button class="close" title="Свернуть">${svg(ICON_DOWN)}</button>
+        </div>
+        <div data-el="player-sep" class="sep"></div>
+        <div class="head">
+          <div data-el="head-room" class="status"><span data-el="room-dot" class="dot"></span><span data-el="role"></span></div>
+          <div data-el="head-lobby" class="head-left">
+            <span class="title">babushkin-jam</span><span data-el="badge" class="badge" hidden>local</span>
+          </div>
+          <button class="close" title="Закрыть">${svg(ICON_CLOSE)}</button>
         </div>
 
         <div data-el="invite" class="section" hidden>
@@ -227,10 +257,13 @@ var YJamOverlay = (() => {
         </div>
 
         <div data-el="room" class="section" hidden>
-          <div data-el="status" class="status" hidden></div>
           <div class="people">
+            <div class="people-row">
+              <span data-el="people-title" class="label"></span>
+              <button data-el="room-code" class="code-copy" title="Скопировать код комнаты"></button>
+            </div>
             <ul data-el="members" class="members"></ul>
-            <div data-el="alone" class="alone" hidden>Пока только вы. Отправьте ссылку другу.</div>
+            <div data-el="alone" class="alone" hidden>Пока только вы. Отправьте ссылку — друг появится здесь.</div>
           </div>
           <div class="share">
             <button data-el="copy" class="btn-primary copy">
@@ -240,7 +273,6 @@ var YJamOverlay = (() => {
             </button>
             <div data-el="invite-link" class="invite-link"></div>
           </div>
-          <div data-el="now" class="now" hidden><svg data-el="now-icon" viewBox="0 0 24 24" aria-hidden="true"></svg><span data-el="now-text"></span></div>
           <button data-el="leave" class="btn-outline">Выйти из комнаты</button>
         </div>
 
@@ -427,7 +459,9 @@ var YJamOverlay = (() => {
       if (dragged) return;
       const b = e.target.closest('button');
       if (!b) return;
-      if (b.dataset.action === 'open') actions.unblock();
+      if (b.classList.contains('track-copy')) copyTrack(b);
+      else if (b.classList.contains('track-share')) shareTrack();
+      else if (b.dataset.action === 'open') actions.unblock();
       else if (b.dataset.action) actions.control(b.dataset.action);
       else if (b.classList.contains('hide')) {
         // крестик убирает виджет совсем: и здесь, и на всех сайтах
@@ -487,6 +521,33 @@ var YJamOverlay = (() => {
       }, 1000);
     };
 
+    let codeCopied = false;
+    $('room-code').onclick = async () => {
+      await copyText(view.room);
+      codeCopied = true;
+      $('room-code').textContent = 'Скопировано';
+      setTimeout(() => {
+        codeCopied = false;
+        if (view && view.room) $('room-code').textContent = view.room;
+      }, 1000);
+    };
+
+    const COPIED_MS = 1200;
+    let copiedTrackTimer = null;
+    async function copyTrack(button) {
+      const t = view && currentTrack(view);
+      if (!t || !t.id) return;
+      await copyText(YJam.trackLink(t));
+      button.classList.add('copied');
+      clearTimeout(copiedTrackTimer);
+      copiedTrackTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
+    }
+
+    function shareTrack() {
+      const t = view && currentTrack(view);
+      if (t) window.open(YJam.songPageUrl(t), '_blank', 'noopener');
+    }
+
     async function copyText(text) {
       try { await navigator.clipboard.writeText(text); return; } catch (e) {}
       const ta = document.createElement('textarea');
@@ -512,11 +573,18 @@ var YJamOverlay = (() => {
 
     const connected = (v) => v.conn === 'open' && !!v.state;
 
+    function currentTrack(v) {
+      const st = connected(v) ? v.state : null;
+      const p = v.player && v.player.ok ? v.player : null;
+      return (st && st.track) || (p && p.track) || null;
+    }
+
     // В пилюле только то, что нужно видеть краем глаза: что джем идёт и кто в нём.
     let pillKey = '';
     function renderPill(v, showInvite) {
       const members = connected(v) ? v.state.members : [];
-      const key = JSON.stringify([v.autoplayBlocked, v.room, showInvite, v.conn, !!v.state,
+      const track = currentTrack(v);
+      const key = JSON.stringify([track && track.id, !!track, v.autoplayBlocked, v.room, showInvite, v.conn, !!v.state,
         members.map((m) => m.name), !!v.warning, v.controls, v.remote && v.canPlay, open]);
       if (key === pillKey) return;
       pillKey = key;
@@ -577,6 +645,20 @@ var YJamOverlay = (() => {
         ctrls.append(button('prev', 'Предыдущий трек', ICON_PREV), play, button('next', 'Следующий трек', ICON_NEXT));
         pill.append(el('span', 'vsep'), ctrls);
       }
+
+      // Появляются вместе с кнопками плеера: без них в плашке остался бы трек, который здесь не играет.
+      if (track && v.controls) {
+        const copy = el('button', 'track-action track-copy');
+        copy.title = 'Скопировать ссылку на трек';
+        copy.setAttribute('aria-label', copy.title);
+        copy.disabled = !track.id;
+        copy.innerHTML = svg(ICON_COPY, 'copy-icon') + svg(ICON_CHECK, 'done-icon');
+        const share = el('button', 'track-action track-share');
+        share.title = 'Поделиться: ссылки на эту песню в других сервисах';
+        share.setAttribute('aria-label', 'Поделиться');
+        share.innerHTML = svg(ICON_SHARE);
+        pill.append(el('span', 'vsep'), copy, share);
+      }
       pill.append(el('span', 'vsep'), hide);
       if (!drag) applyPos(); // ширина пилюли поменялась — не вылезти за край окна
     }
@@ -628,27 +710,41 @@ var YJamOverlay = (() => {
       $('alone').hidden = members.length !== 1;
     }
 
+    function renderPlayer(v, showInvite) {
+      const t = currentTrack(v);
+      $('player').hidden = showInvite;
+      $('player-sep').hidden = showInvite;
+      $('now-title').textContent = t ? t.title || 'название неизвестно' : 'Ничего не играет';
+      $('now-artist').textContent = (t && t.artist) || '';
+      const cover = t && t.cover;
+      if (cover && $('now-cover').getAttribute('src') !== cover) $('now-cover').src = cover;
+      $('now-cover').hidden = !cover;
+    }
+
+    function roleLine(v) {
+      if (connected(v)) {
+        if (v.isLeader) return ['ok', 'подключено · вы ведущий'];
+        const leader = v.state.members.find((m) => m.id === v.state.leaderId);
+        return ['ok', 'подключено · ведущий ' + (leader ? leader.name : '—')];
+      }
+      if (v.conn === 'notab') return ['', 'Джем работает во вкладке Яндекс Музыки — откройте её'];
+      if (v.conn === 'connecting') return ['', 'подключаюсь…'];
+      return ['bad', 'нет связи, переподключаюсь…'];
+    }
+
     function renderRoom(v) {
-      $('room-code').textContent = v.room;
+      if (!codeCopied) $('room-code').textContent = v.room;
       $('invite-link').textContent = YJam.inviteLink(v.room).replace(/^https:\/\//, '');
       const st = connected(v) ? v.state : null;
 
-      $('status').hidden = !!st;
-      $('status').textContent = v.conn === 'notab' ? 'Джем работает во вкладке Яндекс Музыки — откройте её.'
-        : v.conn === 'connecting' ? 'Подключаюсь…' : 'Нет связи с сервером, переподключаюсь…';
+      const [kind, text] = roleLine(v);
+      $('room-dot').className = 'dot' + (kind ? ' ' + kind : '');
+      $('role').textContent = text;
+      $('people-title').textContent = `В комнате · ${st ? st.members.length : '—'}`;
 
       // пока правим имя, список не перерисовываем — иначе поле пропадёт из-под курсора
       if (!st) renaming = false;
       if (!renaming) renderMembers(v);
-
-      const t = st && st.track;
-      $('now').hidden = !st;
-      if (st) {
-        $('now-icon').innerHTML = t && !st.paused ? ICON_PLAY : ICON_PAUSE;
-        $('now-text').textContent = t
-          ? (t.artist ? t.artist + ' — ' : '') + (t.title || 'название неизвестно')
-          : 'Ничего не играет. Включите трек — станете ведущим.';
-      }
     }
 
     function render() {
@@ -659,6 +755,7 @@ var YJamOverlay = (() => {
       renderPill(v, showInvite);
       panel.hidden = !open;
       if (!open) return;
+      renderPlayer(v, showInvite);
 
       if (!nameTouched && document.activeElement !== host && v.name && $('name').value !== v.name) {
         $('name').value = v.name;

@@ -29,8 +29,11 @@
 body {
   position: relative;
   width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin: 0;
-  padding: 18px;
+  padding: 14px 18px;
   background: var(--bg);
   color: var(--fg);
   font: 14px/1.35 var(--sans);
@@ -43,15 +46,41 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 
 .stack { display: flex; flex-direction: column; gap: 18px; }
 
+/* ---------- плеер сверху ---------- */
+.player { display: flex; flex-direction: column; gap: 8px; }
+.player-track { display: flex; align-items: center; gap: 10px; }
+.player-cover { width: 40px; height: 40px; flex: none; border-radius: 7px; overflow: hidden; background: var(--field); }
+.player-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.player-text { flex: 1; min-width: 0; }
+.player-title, .player-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-title { font-size: 13.5px; font-weight: 600; }
+.player-artist { min-height: 17px; color: var(--muted); font-size: 12px; }
+.player-controls { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.ctrl { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; color: var(--soft); }
+.ctrl:hover:not(:disabled) { background: var(--line); color: var(--fg); }
+.ctrl:disabled { opacity: .35; cursor: default; }
+.ctrl svg { width: 18px; height: 18px; fill: currentColor; stroke: none; }
+.ctrl.toggle { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #121212; }
+.ctrl.toggle:hover:not(:disabled) { background: var(--accent-hover); color: #121212; }
+.ctrl.toggle svg { width: 17px; height: 17px; }
+.ctrl.open svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.player-controls .pip {
+  position: absolute; right: 0; width: 32px; height: 32px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; color: var(--muted2);
+}
+.pip:hover { background: var(--line); color: var(--fg); }
+.pip[aria-pressed="true"] { color: var(--accent); }
+.pip svg { width: 17px; height: 17px; stroke-width: 1.8; }
+.pip .pip-inner { fill: currentColor; stroke: none; }
+
 /* ---------- шапка ---------- */
-.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: -2px; }
 .title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; }
 .badge {
   font-size: 11px; font-weight: 600; line-height: 1.3; color: var(--muted);
   border: 1px solid #3A3A3A; border-radius: 5px; padding: 1px 5px;
 }
 .room-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.room-code { font: 700 24px/1.2 var(--mono); letter-spacing: .08em; }
 .icon-btn {
   flex: none; width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center; color: var(--muted2);
@@ -135,7 +164,7 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 
 .create { display: flex; flex-direction: column; gap: 10px; }
 .server-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.sep { height: 1px; background: var(--line); }
+.sep { flex: none; height: 1px; background: var(--line); }
 
 /* ---------- комната ---------- */
 .share { display: flex; flex-direction: column; gap: 8px; }
@@ -145,6 +174,9 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 }
 
 .people { display: flex; flex-direction: column; gap: 4px; }
+.people-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.code-copy { flex: none; color: var(--fg); font: 600 13px var(--mono); letter-spacing: .06em; }
+.code-copy:hover { color: var(--accent); }
 .people-title { padding-bottom: 4px; }
 .members { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .member { display: flex; align-items: center; gap: 10px; height: 36px; }
@@ -179,27 +211,6 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
   padding: 8px 10px; border: 1px dashed #3A3A3A; border-radius: 10px;
   font-size: 12.5px; line-height: 1.45; color: var(--muted);
 }
-
-.now { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; background: #232323; border-radius: 10px; }
-.now span { flex: 1; min-width: 0; font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ctrls { flex: none; display: flex; align-items: center; }
-.ctrl {
-  width: 32px; height: 32px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; color: var(--soft);
-}
-.ctrl:hover { background: var(--btn2); color: var(--fg); }
-.ctrl.open svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; }
-.ctrl svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
-.ctrl.toggle svg { width: 16px; height: 16px; }
-.now-sep { flex: none; width: 1px; height: 16px; background: #3A3A3A; }
-.pip {
-  flex: none; width: 32px; height: 32px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; color: var(--muted2);
-}
-.pip:hover { background: var(--btn2); color: var(--fg); }
-.pip[aria-pressed="true"] { color: var(--accent); }
-.pip svg { width: 17px; height: 17px; stroke-width: 1.8; }
-.pip .pip-inner { fill: currentColor; stroke: none; }
 
 /* всплывающая подсказка: data-tip, над кнопкой, прижата к её правому краю */
 .tip { position: relative; }

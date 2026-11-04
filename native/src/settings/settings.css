@@ -1,5 +1,5 @@
 /* Дополнение к стилям попапа. Виджета в приложении нет, поэтому нет и кнопок для него. */
-#widget, #pip, .now-sep, .field:has(#w-ym) { display: none; }
+#widget, #pip, .field:has(#w-ym) { display: none; }
 
 /* Настройки живут внутри окна: ширину задаёт оно, а если не хватает высоты, они прокручиваются. */
 html { background: var(--bg); overflow-y: auto; }
@@ -12,11 +12,31 @@ html[data-placement="popover"] body { box-shadow: inset 0 0 0 1px var(--field-li
 
 .app-section { gap: 14px; }
 
-.stack-seg { display: flex; flex-direction: column; height: auto; }
-.stack-seg button { flex: none; min-height: 34px; }
+/* Шестерёнка плеера открывает настройки сама, закрывает всё крестик. Гаечный ключ только в настройках, имя меняется в комнате и в трее. */
+#settings-btn, #settings-done, #settings .field:has(#s-name) { display: none; }
+/* Плеер сверху — в расширении и в трее. В окне джема приложения трек и кнопки и так рядом. */
+html:not([data-host="tray"]) :is(#now, #now-sep) { display: none; }
+/* Рисунок ключа смещён внутри своего квадрата, поэтому рядом с крестиком он стоял криво. */
+#tools svg { transform: translate(1px, -1px); }
+html[data-page="main"] #tools { display: none; }
 
-.check { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--soft); cursor: pointer; }
-.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+/* Переключатели и галочки — как в панели трея. */
+.seg { padding: 2px; gap: 2px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .08); }
+.seg button { flex: 1 1 0; min-width: 0; height: 26px; border-radius: 6px; color: var(--soft); font-size: 12px; }
+.seg button[aria-checked="true"] { background: var(--accent); color: #121212; font-weight: 600; }
+
+.check { display: flex; align-items: center; justify-content: space-between; gap: 9px; min-height: 26px; font-size: 13.5px; color: var(--fg); cursor: pointer; }
+.check span { order: -1; }
+.check input {
+  position: relative; flex: none; width: 30px; height: 18px; margin: 0; appearance: none; cursor: pointer;
+  border-radius: 9px; background: rgba(255, 255, 255, .14); transition: background .12s;
+}
+.check input::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--fg); transition: transform .12s;
+}
+.check input:checked { background: var(--accent); }
+.check input:checked::after { background: #121212; transform: translateX(12px); }
 
 .keys { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: 12.5px; }
 .keys[hidden] { display: none; }
