@@ -12,9 +12,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -23,7 +23,7 @@ jobs:
       - name: Синтаксис JS
         run: |
           node native/scripts/bundle.js
-          for f in services/rooms/server.js shared/*.js extension/src/*.js extension/popup/*.js tools/*.js native/src/*.js native/src/mini/*.js native/src/toolbar/*.js native/src/settings/*.js native/scripts/*.js native/generated/*.js native/generated/settings/*.js; do node --check "$f"; done
+          for f in services/rooms/server.js shared/*.js extension/src/*.js extension/popup/*.js tools/*.js native/src/*.js native/src/mini/*.js native/src/toolbar/*.js native/src/tray/*.js native/src/settings/*.js native/scripts/*.js native/generated/*.js native/generated/settings/*.js; do node --check "$f"; done
           sh -n tools/build.sh
 
       - name: Обновление приложения

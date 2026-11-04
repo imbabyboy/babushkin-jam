@@ -670,6 +670,39 @@
     return { ok: true, via: 'setEntityByIndex', switching: true };
   }
 
+  // ---------- случайный порядок и повтор ----------
+  // Порядок как у кнопки сайта. На «Моей волне» нет повтора всей очереди.
+  const REPEAT_NEXT = { none: 'context', context: 'one', one: 'none' };
+  const VIBE_REPEAT_NEXT = { none: 'one', context: 'none', one: 'none' };
+
+  function isVibe(player) {
+    const now = player.state.queueState.currentEntity.value;
+    return !!now && !!now.context && !!now.context.data && now.context.data.type === 'vibe';
+  }
+
+  // Что можно делать с текущей очередью, сайт решает сам: так он включает и выключает свои кнопки.
+  function allowed(player, action) {
+    const context = player.state.currentContext.value;
+    const value = context && context.availableActions && context.availableActions[action] && context.availableActions[action].value;
+    return typeof value === 'boolean' ? value : true;
+  }
+
+  function playModes() {
+    try {
+      const player = findSitePlayer();
+      if (!player) return null;
+      const { shuffle, repeat } = player.state.queueState;
+      return {
+        shuffle: !!shuffle.value,
+        repeat: repeat.value || 'none',
+        canShuffle: allowed(player, 'shuffle'),
+        canRepeat: allowed(player, 'repeat'),
+      };
+    } catch (e) {
+      return null; // сайт поменял устройство плеера: кнопки просто выключатся
+    }
+  }
+
   // ---------- 7. Команды ----------
   const api = () => window.externalAPI;
 
@@ -685,7 +718,23 @@
         played,
         ...snapshot(),
         hasMedia: !!activeMedia(),
+        modes: playModes(),
       };
+    },
+
+    shuffle() {
+      const player = findSitePlayer();
+      if (!player) return { ok: false, error: 'не нашёл плеер сайта' };
+      player.toggleShuffle();
+      return { ok: true };
+    },
+
+    repeat() {
+      const player = findSitePlayer();
+      if (!player) return { ok: false, error: 'не нашёл плеер сайта' };
+      const order = isVibe(player) ? VIBE_REPEAT_NEXT : REPEAT_NEXT;
+      player.setRepeatMode(order[player.state.queueState.repeat.value] || 'none');
+      return { ok: true };
     },
 
     async pause() {

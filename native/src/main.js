@@ -21,6 +21,12 @@ const MESSAGE_TIMEOUT_MS = 15000;
 const RETRY_LOAD_MS = 5000;
 const TOOLBAR_HEIGHT = 44;
 const MINI_WIDTH = 340;
+const SETTINGS_READY_MAX_MS = 1000; // страница ещё грузится: дальше показываем как есть
+const TRAY_PANEL_WIDTH = 320;
+const TRAY_PANEL_GAP = 6;
+const TRAY_PANEL_REOPEN_MS = 300; // клик по иконке сначала убирает фокус с панели и прячет её, открывать снова не надо
+const MINI_NANO_WIDTH = 120; // три кнопки и поля вокруг них
+const MINI_NORMAL_WIDTH = 380;
 const MINI_MIN_HEIGHT = 120;
 const SETTINGS_WIDTH = 320;
 const SETTINGS_MIN_HEIGHT = 120;
@@ -34,13 +40,17 @@ const ASSETS = path.join(__dirname, '..', 'assets');
 
 const MODES = { full: 'Полное окно', mini: 'Только плеер', tray: 'Свернуть в трей' };
 const CLOSE_ACTIONS = { mini: 'Оставить плеер', tray: 'Свернуть в трей', quit: 'Выйти из приложения' };
+// В узких переключателях настроек и трея длинные названия не помещаются.
+const MODE_LABELS = { full: 'Окно', mini: 'Плеер', tray: 'В трей' };
+const CLOSE_LABELS = { mini: 'Плеер', tray: 'В трей', quit: 'Выйти' };
 const HOTKEYS = [
   { accelerator: 'CommandOrControl+Alt+P', label: 'Плей / пауза', run: () => control('toggle') },
   { accelerator: 'CommandOrControl+Alt+[', label: 'Предыдущий трек', run: () => control('prev') },
   { accelerator: 'CommandOrControl+Alt+]', label: 'Следующий трек', run: () => control('next') },
   { accelerator: 'CommandOrControl+Alt+J', label: 'Показать или скрыть плеер', run: () => toggleMini() },
 ];
-const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, hotkeys: true, trayIcon: true };
+const MINI_VIEWS = { nano: 'Нано', micro: 'Микро', normal: 'Нормальный' };
+const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, miniView: 'micro', hotkeys: true, trayIcon: true };
 // Что окна настроек могут спрашивать у страницы Музыки — то же, что попап расширения у вкладки.
 const MUSIC_MESSAGES = new Set(['yjam:status', 'yjam:diag', 'yjam:control', 'yjam:resync']);
 
@@ -53,10 +63,13 @@ let miniWindow = null;
 let settingsView = null;  // попап расширения, живёт между открытиями
 let settingsHost = null; // где открыт сейчас: 'main', 'mini' или нигде
 let settingsHeight = 440;
-let jamAnchor = null;    // кнопка «Джем» на панели, координаты в окне
+let toolbarAnchors = null; // кнопки «Джем» и «Настройки» на панели, координаты в окне
 let playerHeight = MINI_MIN_HEIGHT;
 let playerOffset = 0;    // настройки над плеером: на столько плеер ниже верха окна
 let tray = null;
+let trayPanel = null;
+let trayPanelHeight = 0;
+let trayPanelHiddenAt = 0;
 let quitting = false;
 let htmlFullScreen = false;
 let lastStatus = { page: 'loading', status: null };
@@ -172,9 +185,9 @@ function createMainWindow() {
   });
   mainWindow.loadFile(path.join(__dirname, 'toolbar', 'toolbar.html'));
   mainWindow.webContents.on('did-finish-load', () => pushSettingsState());
-  // Клик по самой кнопке «Джем» не считаем: она сама закроет настройки по своему нажатию.
+  // Клик по самим кнопкам не считаем: они сами закроют или переключат страницу по своему нажатию.
   mainWindow.webContents.on('before-mouse-event', (_e, mouse) => {
-    if (mouse.type === 'mouseDown' && settingsHost === 'main' && !insideJamAnchor(mouse)) closeSettings();
+    if (mouse.type === 'mouseDown' && settingsHost === 'main' && !insideToolbarAnchor(mouse)) closeSettings();
   });
 
   musicView = new WebContentsView({
@@ -240,7 +253,7 @@ function createMainWindow() {
 function createMiniWindow() {
   const { miniBounds } = store.get({ miniBounds: null });
   miniWindow = new BrowserWindow({
-    width: MINI_WIDTH,
+    width: miniWidth(),
     height: MINI_MIN_HEIGHT,
     ...miniPosition(miniBounds),
     show: false,
@@ -291,8 +304,15 @@ function applyMiniOnTop() {
   if (IS_MAC) miniWindow.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: on, skipTransformProcessType: true });
 }
 
+// Раскрытые настройки в нано не поместились бы, поэтому на это время окно обычной ширины.
+function miniWidth() {
+  const { miniView } = prefs();
+  if (miniView === 'normal') return MINI_NORMAL_WIDTH;
+  return miniView === 'nano' && settingsHost !== 'mini' ? MINI_NANO_WIDTH : MINI_WIDTH;
+}
+
 function setMiniHeight(height) {
-  playerHeight = Math.max(Math.ceil(height), MINI_MIN_HEIGHT);
+  playerHeight = Math.ceil(height);
   layoutMini();
 }
 
@@ -305,6 +325,7 @@ function layoutMini() {
   // нижний край не должен уйти за экран, когда панель раскрылась
   const top = Math.max(area.y, Math.min(bounds.y + playerOffset, area.y + area.height - player));
 
+  const width = miniWidth();
   let panel = 0;
   let above = false;
   if (settingsHost === 'mini') {
@@ -312,11 +333,13 @@ function layoutMini() {
     const roomAbove = top - area.y;
     above = roomBelow < settingsHeight && roomAbove > roomBelow;
     panel = Math.min(settingsHeight, above ? roomAbove : roomBelow);
-    settingsView.setBounds({ x: 0, y: above ? 0 : player, width: MINI_WIDTH, height: panel });
+    settingsView.setBounds({ x: 0, y: above ? 0 : player, width, height: panel });
   }
   playerOffset = above ? panel : 0;
   pushSettingsState(above ? 'above' : 'below');
-  miniWindow.setBounds({ x: bounds.x, y: top - playerOffset, width: MINI_WIDTH, height: player + panel });
+  // Нано могли поставить к правому краю: при расширении окно не должно уйти за экран.
+  const x = Math.max(area.x, Math.min(bounds.x, area.x + area.width - width));
+  miniWindow.setBounds({ x, y: top - playerOffset, width, height: player + panel });
 }
 
 // ---------- настройки: попап расширения внутри окна ----------
@@ -326,6 +349,7 @@ function createSettingsView() {
       preload: path.join(GENERATED, 'preload-app.js'),
       contextIsolation: true,
       sandbox: true,
+      backgroundThrottling: false, // иначе скрытая страница не перерисуется к следующему показу
     },
   });
   settingsView.setBackgroundColor(BACKGROUND);
@@ -338,36 +362,51 @@ function hostWindow() {
 }
 
 // Режим «только трей» окон не держит, поэтому настройки раскрываем в плеере.
-function openSettings() {
+async function openSettings(page = 'settings') {
+  settingsPage = page;
   if (prefs().mode === 'tray') setMode('mini');
+  const opening = ++settingsOpening;
+  if (!settingsView) createSettingsView();
+  // Сначала меняем страницу, потом показываем: иначе на миг видна прошлая страница и прошлая высота.
+  const height = await settingsPageReady(page);
+  if (opening !== settingsOpening) return; // пока ждали, закрыли или открыли другую
+  if (height) setSettingsHeight(height);
   const host = prefs().mode === 'full' ? 'main' : 'mini';
   if (settingsHost !== host) {
     closeSettings();
-    if (!settingsView) createSettingsView();
     settingsHost = host;
     settingsView.setBorderRadius(host === 'main' ? 12 : 0);
     hostWindow().contentView.addChildView(settingsView);
-    layoutSettings();
   }
+  layoutSettings();
   hostWindow().show();
   hostWindow().focus();
   settingsView.webContents.focus();
   pushSettingsState();
 }
 
+function settingsPageReady(page) {
+  const ready = settingsView.webContents.executeJavaScript(`window.yjamShowPage(${JSON.stringify(page)})`).catch(() => 0);
+  const late = new Promise((resolve) => { setTimeout(() => resolve(0), SETTINGS_READY_MAX_MS); });
+  return Promise.race([ready, late]);
+}
+
 function closeSettings() {
+  settingsOpening++;
   if (!settingsHost) return;
   const host = settingsHost;
   hostWindow().contentView.removeChildView(settingsView);
   settingsHost = null;
   if (host === 'mini') layoutMini();
-  else if (mainWindow.isVisible()) musicContents().focus();
+  // Фокус возвращаем, только если окно и так в фокусе: иначе оно отнимет его у панели трея, и та закроется.
+  else if (mainWindow.isFocused()) musicContents().focus();
   pushSettingsState();
 }
 
-function toggleSettings() {
-  if (settingsHost) closeSettings();
-  else openSettings();
+// «Джем» открывает комнату, шестерёнка — настройки. Вторая кнопка при открытой первой просто переключает страницу.
+function toggleSettings(page = 'main') {
+  if (settingsHost && settingsPage === page) closeSettings();
+  else openSettings(page);
 }
 
 function layoutSettings() {
@@ -378,17 +417,18 @@ function layoutSettings() {
 // Строго под кнопкой «Джем»: левые края совпадают. Окно могут сделать низким — тогда настройки прокручиваются.
 function layoutPopover() {
   const { width, height } = mainWindow.getContentBounds();
-  const anchor = jamAnchor || { left: SETTINGS_MARGIN, bottom: TOOLBAR_HEIGHT };
-  const x = Math.round(Math.max(SETTINGS_MARGIN, Math.min(anchor.left, width - SETTINGS_WIDTH - SETTINGS_MARGIN)));
-  const y = Math.round(anchor.bottom + SETTINGS_GAP);
+  const anchor = toolbarAnchors && toolbarAnchors[settingsPage];
+  // Джем стоит слева и открывается вправо от кнопки, настройки — наоборот.
+  const wanted = !anchor ? SETTINGS_MARGIN : settingsPage === 'settings' ? anchor.right - SETTINGS_WIDTH : anchor.left;
+  const x = Math.round(Math.max(SETTINGS_MARGIN, Math.min(wanted, width - SETTINGS_WIDTH - SETTINGS_MARGIN)));
+  const y = Math.round((anchor ? anchor.bottom : TOOLBAR_HEIGHT) + SETTINGS_GAP);
   settingsView.setBounds({
     x, y, width: SETTINGS_WIDTH, height: Math.min(settingsHeight, height - y - SETTINGS_MARGIN),
   });
 }
 
-function insideJamAnchor({ x, y }) {
-  const a = jamAnchor;
-  return !!a && x >= a.left && x <= a.right && y >= a.top && y <= a.bottom;
+function insideToolbarAnchor({ x, y }) {
+  return Object.values(toolbarAnchors || {}).some((a) => x >= a.left && x <= a.right && y >= a.top && y <= a.bottom);
 }
 
 function setSettingsHeight(height) {
@@ -397,14 +437,16 @@ function setSettingsHeight(height) {
 }
 
 let settingsPlacement = 'below';
+let settingsPage = 'main'; // 'main' — комната, 'settings' — настройки
+let settingsOpening = 0;
 
 // Плееру — на сколько сдвинуться вниз, кнопкам — подсветка, самим настройкам — с какой стороны линия.
 function pushSettingsState(side) {
   if (side) settingsPlacement = side;
   const placement = settingsHost === 'main' ? 'popover' : settingsPlacement;
-  if (mainWindow) mainWindow.webContents.send('yjam:settings-state', { open: settingsHost === 'main' });
-  if (miniWindow) miniWindow.webContents.send('yjam:settings-state', { open: settingsHost === 'mini', offset: playerOffset });
-  if (settingsView) settingsView.webContents.send('yjam:settings-state', { placement });
+  if (mainWindow) mainWindow.webContents.send('yjam:settings-state', { open: settingsHost === 'main', page: settingsPage });
+  if (miniWindow) miniWindow.webContents.send('yjam:settings-state', { open: settingsHost === 'mini', offset: playerOffset, page: settingsPage });
+  if (settingsView) settingsView.webContents.send('yjam:settings-state', { placement, page: settingsPage });
 }
 
 // ---------- состояние для окон и трея ----------
@@ -425,7 +467,7 @@ async function poll() {
 }
 
 function pushStatus() {
-  for (const w of [mainWindow, miniWindow]) if (w) w.webContents.send('yjam:status', lastStatus);
+  for (const w of [mainWindow, miniWindow, trayPanel]) if (w) w.webContents.send('yjam:status', lastStatus);
 }
 
 // ---------- комната из меню ----------
@@ -451,9 +493,9 @@ function jamItems() {
       { label: 'Вы не в комнате', enabled: false },
       { type: 'separator' },
       { label: 'Создать комнату', click: () => store.set({ room: YJam.randomCode() }) },
-      { label: 'Войти по коду…', click: openSettings },
+      { label: 'Войти по коду…', click: () => openSettings('main') },
       { type: 'separator' },
-      { label: 'Настройки синхронизации…', click: openSettings },
+      { label: 'Настройки синхронизации…', click: () => openSettings('main') },
     ];
   }
   const online = info.conn === 'open';
@@ -467,7 +509,7 @@ function jamItems() {
     { label: 'Синхронизировать', click: () => askMusic({ type: 'yjam:resync' }) },
     { label: 'Скопировать диагностику', click: copyDiagnostics },
     { type: 'separator' },
-    { label: 'Настройки синхронизации…', click: openSettings },
+    { label: 'Настройки синхронизации…', click: () => openSettings('main') },
     { label: 'Выйти из комнаты', click: () => store.set({ room: '' }) },
   ];
 }
@@ -507,6 +549,18 @@ function onTopItem() {
   };
 }
 
+// В нано нет шестерёнки, а отсюда вид меняется без полного окна.
+function miniViewItem() {
+  const { miniView } = prefs();
+  return {
+    label: 'Вид плеера',
+    submenu: Object.entries(MINI_VIEWS).map(([view, label]) => ({
+      label, type: 'radio', checked: miniView === view,
+      click: () => store.set({ miniView: view }),
+    })),
+  };
+}
+
 function windowOptionItems() {
   const p = prefs();
   return [
@@ -543,12 +597,12 @@ function applicationMenu() {
     ...(IS_MAC ? [{ role: 'appMenu' }] : []),
     { label: 'Плеер', submenu: playerItems() },
     { label: 'Джем', submenu: jamItems() },
-    { label: 'Окно', submenu: [...modeItems(), { type: 'separator' }, onTopItem(), ...windowOptionItems()] },
+    { label: 'Окно', submenu: [...modeItems(), { type: 'separator' }, miniViewItem(), onTopItem(), ...windowOptionItems()] },
     { role: 'editMenu', label: 'Правка' },
     {
       label: 'Вид',
       submenu: [
-        { label: 'Настройки…', accelerator: 'CommandOrControl+,', click: openSettings },
+        { label: 'Настройки…', accelerator: 'CommandOrControl+,', click: () => openSettings('settings') },
         { label: 'Обновить страницу', accelerator: 'CommandOrControl+R', click: () => musicContents().reload() },
         { role: 'togglefullscreen', label: 'На весь экран' },
         { type: 'separator' },
@@ -567,26 +621,6 @@ function applicationMenu() {
   ]);
 }
 
-function trayMenu() {
-  const t = currentTrack();
-  const title = t ? `${t.title}${t.artist ? ' — ' + t.artist : ''}` : 'Ничего не играет';
-  const info = roomInfo();
-  return Menu.buildFromTemplate([
-    { label: title.length > 60 ? title.slice(0, 59) + '…' : title, enabled: false },
-    { type: 'separator' },
-    ...playerItems(),
-    { type: 'separator' },
-    { label: info ? `Джем · ${info.code}${info.count ? ' · ' + info.count : ''}` : 'Джем', submenu: jamItems() },
-    { label: 'Настройки…', click: openSettings },
-    { type: 'separator' },
-    ...modeItems(),
-    onTopItem(),
-    { label: 'Окно и клавиши', submenu: windowOptionItems() },
-    { type: 'separator' },
-    { label: 'Выйти', click: () => app.quit() },
-  ]);
-}
-
 // Пересобираем меню, только когда в нём что-то изменилось: обновление раз в секунду закрывало бы его.
 function refreshMenus(force = false) {
   const t = currentTrack();
@@ -595,7 +629,6 @@ function refreshMenus(force = false) {
   menuKey = key;
   Menu.setApplicationMenu(applicationMenu());
   if (tray) {
-    tray.setContextMenu(trayMenu());
     tray.setToolTip(t ? `${t.title}${t.artist ? ' — ' + t.artist : ''}` : 'babushkin-jam');
   }
 }
@@ -603,17 +636,86 @@ function refreshMenus(force = false) {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(ASSETS, IS_MAC ? 'trayTemplate.png' : 'tray.png'));
   tray = new Tray(icon);
-  // На macOS клик открывает меню сам. На Windows меню — правой кнопкой, а левая управляет плеером.
-  if (!IS_MAC) {
+  createTrayPanel();
+  tray.on('right-click', toggleTrayPanel);
+  // На Windows левая кнопка по привычке управляет плеером.
+  if (IS_MAC) {
+    tray.on('click', toggleTrayPanel);
+  } else {
     tray.on('click', toggleMini);
     tray.on('double-click', () => setMode('full'));
   }
+}
+
+// Системное меню не умеет кнопок в одну строку, поэтому под иконкой — своё окно.
+function createTrayPanel() {
+  trayPanel = new BrowserWindow({
+    width: TRAY_PANEL_WIDTH,
+    height: 400,
+    show: false,
+    frame: false,
+    resizable: false,
+    movable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    // panel и размытие только на macOS: panel показывается поверх чужих полноэкранных окон.
+    ...(IS_MAC
+      ? { type: 'panel', vibrancy: 'menu', visualEffectState: 'active', backgroundColor: '#00000000' }
+      : { backgroundColor: BACKGROUND }),
+    title: 'babushkin-jam — трей',
+    webPreferences: {
+      preload: path.join(GENERATED, 'preload-app.js'),
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  if (IS_MAC) trayPanel.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  trayPanel.on('closed', () => { trayPanel = null; });
+  trayPanel.on('blur', hideTrayPanel);
+  trayPanel.webContents.on('did-finish-load', pushStatus);
+  trayPanel.loadFile(path.join(GENERATED, 'settings', 'popup.html'), { search: 'host=tray' });
+}
+
+// Панель задач на Windows бывает и снизу, и сверху: окно ставим с той стороны иконки, где есть место.
+function placeTrayPanel() {
+  const icon = tray.getBounds();
+  const area = screen.getDisplayNearestPoint({ x: icon.x, y: icon.y }).workArea;
+  const height = Math.min(trayPanelHeight || 400, area.height - TRAY_PANEL_GAP * 2);
+  const x = Math.max(area.x + TRAY_PANEL_GAP, Math.min(
+    icon.x + icon.width / 2 - TRAY_PANEL_WIDTH / 2,
+    area.x + area.width - TRAY_PANEL_WIDTH - TRAY_PANEL_GAP,
+  ));
+  const below = icon.y + icon.height / 2 < area.y + area.height / 2;
+  const y = below
+    ? Math.max(area.y + TRAY_PANEL_GAP, icon.y + icon.height + TRAY_PANEL_GAP)
+    : Math.max(area.y + TRAY_PANEL_GAP, icon.y - height - TRAY_PANEL_GAP);
+  trayPanel.setBounds({ x: Math.round(x), y: Math.round(y), width: TRAY_PANEL_WIDTH, height });
+}
+
+function toggleTrayPanel() {
+  if (!trayPanel) createTrayPanel();
+  if (trayPanel.isVisible()) { hideTrayPanel(); return; }
+  if (Date.now() - trayPanelHiddenAt < TRAY_PANEL_REOPEN_MS) return;
+  placeTrayPanel();
+  pushStatus();
+  trayPanel.show();
+  trayPanel.focus();
+}
+
+function hideTrayPanel() {
+  if (!trayPanel || !trayPanel.isVisible()) return;
+  trayPanelHiddenAt = Date.now();
+  trayPanel.hide();
 }
 
 function applyTrayIcon() {
   if (prefs().trayIcon) {
     if (!tray) createTray();
   } else if (tray) {
+    if (trayPanel) trayPanel.destroy();
     tray.destroy();
     tray = null;
   }
@@ -638,10 +740,11 @@ async function copyDiagnostics() {
 
 // ---------- настройки изменились ----------
 function onStoreChange(changes) {
-  for (const w of [mainWindow, miniWindow, musicView, settingsView]) {
+  for (const w of [mainWindow, miniWindow, musicView, settingsView, trayPanel]) {
     if (w) w.webContents.send('yjam:storage-changed', changes);
   }
   if (changes.miniOnTop) applyMiniOnTop();
+  if (changes.miniView && miniWindow) layoutMini();
   if (changes.trayIcon) applyTrayIcon();
   // Меню собирается и при запуске, когда горячих клавиш ещё нет: применяем только изменение.
   if (changes.hotkeys) applyHotkeys();
@@ -651,7 +754,7 @@ function onStoreChange(changes) {
 // ---------- мост к окнам ----------
 function setupIpc() {
   const known = (e) => {
-    const contents = [mainWindow, miniWindow, musicView, settingsView].filter(Boolean).map((w) => w.webContents);
+    const contents = [mainWindow, miniWindow, musicView, settingsView, trayPanel].filter(Boolean).map((w) => w.webContents);
     return contents.includes(e.sender);
   };
   const handle = (channel, fn) => ipcMain.handle(channel, (e, ...args) => (known(e) ? fn(...args) : null));
@@ -669,11 +772,14 @@ function setupIpc() {
     poll();
     return result;
   });
-  handle('yjam:set-mode', (mode) => setMode(mode));
+  handle('yjam:set-mode', (mode) => { hideTrayPanel(); setMode(mode); });
+  handle('yjam:open-settings', (page) => { hideTrayPanel(); openSettings(page === 'main' ? 'main' : 'settings'); });
+  handle('yjam:hide-tray-panel', () => hideTrayPanel());
+  handle('yjam:quit', () => app.quit());
   handle('yjam:copy', (text) => clipboard.writeText(String(text)));
   // Окно передаёт только данные трека, а адрес строится здесь: страница не может открыть произвольную ссылку.
   handle('yjam:open-song-page', (track) => shell.openExternal(YJam.songPageUrl(track)));
-  handle('yjam:toggle-settings', () => toggleSettings());
+  handle('yjam:toggle-settings', (page) => toggleSettings(page === 'settings' ? 'settings' : 'main'));
   handle('yjam:close-settings', () => closeSettings());
   handle('yjam:reload-music', () => musicContents().reload());
   handle('yjam:update-state', () => updater.getState());
@@ -689,8 +795,9 @@ function setupIpc() {
   handle('yjam:info', () => ({
     version: app.getVersion(),
     platform: IS_MAC ? 'macOS' : 'Windows',
-    modes: MODES,
-    closeActions: CLOSE_ACTIONS,
+    modeLabels: MODE_LABELS,
+    miniViews: MINI_VIEWS,
+    closeLabels: CLOSE_LABELS,
     prefDefaults: PREF_DEFAULTS,
     hotkeys: HOTKEYS.map((h) => ({ label: h.label, keys: hotkeyLabel(h.accelerator) })),
   }));
@@ -703,10 +810,15 @@ function setupIpc() {
   ipcMain.on('yjam:window-height', (e, height) => {
     if (miniWindow && e.sender === miniWindow.webContents) setMiniHeight(height);
     else if (settingsView && e.sender === settingsView.webContents) setSettingsHeight(height);
+    else if (trayPanel && e.sender === trayPanel.webContents) {
+      trayPanelHeight = Math.ceil(height);
+      if (trayPanel.isVisible()) placeTrayPanel();
+      else trayPanel.setContentSize(TRAY_PANEL_WIDTH, trayPanelHeight);
+    }
   });
-  ipcMain.on('yjam:jam-anchor', (e, rect) => {
+  ipcMain.on('yjam:toolbar-anchors', (e, rects) => {
     if (!mainWindow || e.sender !== mainWindow.webContents) return;
-    jamAnchor = rect;
+    toolbarAnchors = rects;
     layoutSettings();
   });
 }

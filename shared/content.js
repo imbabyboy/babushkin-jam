@@ -384,6 +384,8 @@
   // пауза у всех, а смена трека делает нажавшего ведущим.
   let controlPlayAt = 0;
   async function control(action) {
+    // У каждого свои: трек не меняется, а следующий в комнате всё равно выбирает очередь ведущего.
+    if (action === 'shuffle' || action === 'repeat') return pageCall(action);
     noteLocalAction();
     if (action === 'toggle') {
       const s = await pageCall('state');

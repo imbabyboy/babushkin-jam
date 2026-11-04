@@ -19,7 +19,7 @@
 <body>
 <main>
   <h1>babushkin-jam: политика конфиденциальности</h1>
-  <p class="muted">Обновлено 6 октября 2026</p>
+  <p class="muted">Обновлено 4 ноября 2026</p>
 
   <p>babushkin-jam — неофициальное расширение для Chrome. Оно позволяет нескольким людям слушать Яндекс Музыку синхронно. Расширение не связано с ООО «Яндекс» и не одобрено им.</p>
 
@@ -43,7 +43,14 @@
 
   <h2>Хранение</h2>
   <p>Сервер хранит состояние комнаты только в оперативной памяти, без базы данных и журналов. Пустая комната удаляется через 5 минут после выхода последнего участника. Имя, код комнаты и адрес сервера хранятся локально в вашем браузере (<code>chrome.storage</code>).</p>
-  <p>Данные не продаются, не передаются третьим лицам и не используются для рекламы или аналитики.</p>
+  <p>Данные комнаты не продаются, не передаются третьим лицам и не используются для рекламы или аналитики.</p>
+
+  <h2>Сервис ссылок на песню</h2>
+  <p>В приложении кнопка «Уйти на сайт» открывает в браузере страницу сервиса ссылок. В её адресе есть исполнитель, название, альбом, длительность и номер трека. Расширение и приложение сами туда ничего не отправляют.</p>
+  <p>Текст запроса сервис передаёт внешним площадкам для поиска: Apple, Deezer, YouTube, SoundCloud и другим подключённым. Результаты поиска с текстом запроса хранятся в кэше на сервере до 30 дней. IP-адрес используется только в памяти для ограничения частоты запросов. В журналы сервис не пишет ни адреса, ни запросы.</p>
+
+  <h2>Обновления приложения</h2>
+  <p>Приложение проверяет новую версию запросом к GitHub и скачивает её оттуда же, поэтому GitHub видит ваш IP-адрес. Никаких данных о вас, комнате или музыке в этом запросе нет. Расширение таких запросов не делает, его обновляет Chrome.</p>
 
   <h2>Контакты</h2>
   <p>Вопросы можно задать через страницу расширения в Chrome Web Store (раздел «Поддержка»).</p>
@@ -51,7 +58,7 @@
   <hr>
 
   <h1>babushkin-jam: privacy policy</h1>
-  <p class="muted">Updated October 6, 2026</p>
+  <p class="muted">Updated November 4, 2026</p>
 
   <p>babushkin-jam is an unofficial Chrome extension that lets several people listen to Yandex Music in sync. It is not affiliated with or endorsed by Yandex.</p>
 
@@ -75,7 +82,14 @@
 
   <h2>Retention</h2>
   <p>The server keeps room state in memory only, with no database or logs. An empty room is deleted 5 minutes after the last member leaves. Your name, room code and server address are stored locally in your browser (<code>chrome.storage</code>).</p>
-  <p>Data is not sold, not shared with third parties and not used for advertising or analytics.</p>
+  <p>Room data is not sold, not shared with third parties and not used for advertising or analytics.</p>
+
+  <h2>Song links service</h2>
+  <p>In the app, the “Уйти на сайт” (go to site) button opens the song links page in your browser. Its address contains the artist, title, album, duration and track number. The extension and the app send nothing there themselves.</p>
+  <p>The service passes the search text to external platforms: Apple, Deezer, YouTube, SoundCloud and others that are connected. Search results with the search text are cached on the server for up to 30 days. Your IP address is used in memory only, to limit request rates. The service does not log addresses or searches.</p>
+
+  <h2>App updates</h2>
+  <p>The app checks for a new version with a request to GitHub and downloads it from there, so GitHub sees your IP address. The request contains no data about you, your room or your music. The extension makes no such requests, Chrome updates it.</p>
 
   <h2>Contact</h2>
   <p>Questions can be asked via the extension page in the Chrome Web Store (Support tab).</p>

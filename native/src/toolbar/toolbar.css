@@ -51,7 +51,7 @@ body.win { padding-right: 150px; }
   background: #2E2E2E; color: #F2F2F2; font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
   -webkit-app-region: no-drag;
 }
-.btn:hover { background: #383838; }
+.btn:hover, .btn[aria-pressed="true"] { background: #383838; }
 .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .btn svg .solid { fill: currentColor; stroke: none; }
 .btn.primary { background: #FFDB4D; color: #121212; }
