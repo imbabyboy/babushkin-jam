@@ -1,7 +1,8 @@
 name: Release
 
 # Мерж в main, который меняет расширение или приложение, собирает их и обновляет релиз.
-# Номер релиза — версия расширения: новая версия создаёт новый релиз, при той же заменяются файлы.
+# Номер релиза — версия расширения, её же получает приложение: новая версия создаёт новый релиз,
+# при той же заменяются файлы, а установленные приложения кнопку обновления не покажут.
 on:
   workflow_dispatch:
   push:
@@ -40,6 +41,7 @@ jobs:
           name: extension
           path: dist/builds/*.zip
           if-no-files-found: error
+          retention-days: 1
 
   native:
     strategy:
@@ -75,6 +77,7 @@ jobs:
             dist/native/*.dmg
             dist/native/*.exe
           if-no-files-found: error
+          retention-days: 1
 
   publish:
     needs: [extension, native]
@@ -89,28 +92,26 @@ jobs:
           path: out
           merge-multiple: true
 
-      - name: Версии
-        run: |
-          echo "EXT=$(jq -r .version extension/manifest.json)" >> "$GITHUB_ENV"
-          echo "APP=$(jq -r .version native/package.json)" >> "$GITHUB_ENV"
+      - name: Версия
+        run: echo "VERSION=$(jq -r .version extension/manifest.json)" >> "$GITHUB_ENV"
 
       # Имена без версии: ссылки вида releases/latest/download/<файл> не меняются от релиза к релизу.
       - name: Имена файлов
         working-directory: out
         run: |
-          mv "babushkin-jam-extension-$EXT.zip" babushkin-jam-extension.zip
-          mv "babushkin-jam-$APP-arm64.dmg" babushkin-jam-mac-apple-silicon.dmg
-          mv "babushkin-jam-$APP.dmg" babushkin-jam-mac-intel.dmg
-          mv "babushkin-jam Setup $APP.exe" babushkin-jam-windows.exe
+          mv "babushkin-jam-extension-$VERSION.zip" babushkin-jam-extension.zip
+          mv "babushkin-jam-$VERSION-arm64.dmg" babushkin-jam-mac-apple-silicon.dmg
+          mv "babushkin-jam-$VERSION.dmg" babushkin-jam-mac-intel.dmg
+          mv "babushkin-jam Setup $VERSION.exe" babushkin-jam-windows.exe
           ls -l
 
       - name: Заметки из CHANGELOG.md
         run: |
           section() { awk -v h="## [$1]" 'index($0, h) == 1 {f=1; next} /^(## )?\[/ {f=0} f' CHANGELOG.md; }
-          body=$(section "$EXT")
+          body=$(section "$VERSION")
           [ -n "$body" ] || body=$(section Unreleased)
           {
-            printf 'Расширение %s, приложение %s. Коммит %s.\n\n' "$EXT" "$APP" "$GITHUB_SHA"
+            printf 'Коммит %s.\n\n' "$GITHUB_SHA"
             cat <<'NOTE'
           **Первый запуск приложения.** Оно пока не подписано сертификатом разработчика, поэтому система его предупредит:
 
@@ -125,7 +126,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v$EXT"
+          tag="v$VERSION"
           if gh release view "$tag" > /dev/null 2>&1; then
             gh release upload "$tag" out/* --clobber
             gh release edit "$tag" --notes-file notes.md --latest

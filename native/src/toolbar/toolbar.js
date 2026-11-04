@@ -13,6 +13,28 @@
   $('mini').onclick = () => desktop.setMode('mini');
   $('tray').onclick = () => desktop.setMode('tray');
   $('jam').onclick = () => desktop.toggleSettings();
+  $('update').onclick = () => desktop.installUpdate();
+
+  const UPDATE_LABELS = {
+    available: () => 'Обновить',
+    downloading: ({ percent }) => `Скачиваю ${percent}%`,
+    installing: () => 'Устанавливаю…',
+    manual: () => 'Скачать вручную',
+  };
+
+  function showUpdate(state) {
+    const label = UPDATE_LABELS[state.status];
+    $('update').hidden = !label;
+    if (!label) return;
+    $('update-label').textContent = label(state);
+    $('update').disabled = state.status === 'downloading' || state.status === 'installing';
+    $('update').title = state.status === 'manual'
+      ? 'Не получилось обновить. Откроется страница со свежей версией'
+      : `Новая версия ${state.version}. Приложение перезапустится`;
+  }
+
+  desktop.onUpdateState(showUpdate);
+  desktop.updateState().then(showUpdate);
 
   desktop.onSettingsState(({ open }) => $('jam').setAttribute('aria-expanded', String(open)));
 

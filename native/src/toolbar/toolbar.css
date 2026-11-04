@@ -54,3 +54,6 @@ body.win { padding-right: 150px; }
 .btn svg .solid { fill: currentColor; stroke: none; }
 .btn.primary { background: #FFDB4D; color: #121212; }
 .btn.primary:hover { background: #FFE680; }
+.btn.update { background: none; box-shadow: inset 0 0 0 1px #FFDB4D; color: #FFDB4D; font-variant-numeric: tabular-nums; }
+.btn.update:hover { background: #2E2E2E; }
+.btn.update:disabled { cursor: default; opacity: .7; background: none; }

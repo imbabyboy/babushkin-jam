@@ -10,8 +10,10 @@ const {
 } = require('electron');
 const { pathToFileURL } = require('url');
 const { createStore } = require('./store');
+const { createUpdater } = require('./updater');
 
 const MUSIC_URL = 'https://music.yandex.ru/';
+const RELEASES_URL = 'https://github.com/imbabyboy/babushkin-jam/releases/latest';
 const MUSIC_HOST_RE = /(^|\.)music\.yandex\.(ru|com|by|kz)$/;
 const POLL_MS = 1000;
 const STATUS_TIMEOUT_MS = 2500;
@@ -44,6 +46,7 @@ const MUSIC_MESSAGES = new Set(['yjam:status', 'yjam:diag', 'yjam:control', 'yja
 
 let store;
 let YJam;
+let updater;
 let mainWindow = null;   // рамка окна и панель сверху
 let musicView = null;    // сама Яндекс Музыка под панелью
 let miniWindow = null;
@@ -673,6 +676,8 @@ function setupIpc() {
   handle('yjam:toggle-settings', () => toggleSettings());
   handle('yjam:close-settings', () => closeSettings());
   handle('yjam:reload-music', () => musicContents().reload());
+  handle('yjam:update-state', () => updater.getState());
+  handle('yjam:update-install', () => updater.install());
   handle('yjam:music-ready', () => currentPage() === 'music');
   handle('yjam:ask-music', async (msg) => {
     if (!msg || !MUSIC_MESSAGES.has(msg.type)) return null;
@@ -741,6 +746,23 @@ function loadShared() {
   return new Function('chrome', `${source}\nreturn YJam;`)(stubChrome);
 }
 
+function setupUpdater() {
+  updater = createUpdater({
+    version: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    execPath: process.execPath,
+    pid: process.pid,
+    tempDir: path.join(app.getPath('temp'), 'babushkin-jam-update'),
+    fetch: (url, options) => net.fetch(url, options),
+    openReleases: () => shell.openExternal(RELEASES_URL),
+    quit: () => app.quit(),
+    onChange: (state) => { if (mainWindow) mainWindow.webContents.send('yjam:update-state', state); },
+  });
+  // При запуске из исходников обновлять нечего.
+  if (app.isPackaged) updater.start();
+}
+
 // ---------- запуск ----------
 if (!app.requestSingleInstanceLock()) {
   // Каждая копия была бы отдельным участником комнаты — оставляем одну.
@@ -758,6 +780,7 @@ if (!app.requestSingleInstanceLock()) {
     store = createStore(path.join(app.getPath('userData'), 'settings.json'), onStoreChange);
     setupSession();
     setupAssets();
+    setupUpdater();
     setupIpc();
     createMainWindow();
     createMiniWindow();

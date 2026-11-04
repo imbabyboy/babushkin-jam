@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-APP_VERSION=$(node -p "require('./native/package.json').version")
+APP_VERSION=$(node -p "require('./extension/manifest.json').version")
 OUT=dist/builds
 
 # Старые версии убираем, чтобы случайно не отправить устаревший файл.
