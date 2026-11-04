@@ -15,6 +15,8 @@
   $('jam').onclick = () => desktop.toggleSettings();
   $('update').onclick = () => desktop.installUpdate();
 
+  desktop.info().then(({ version }) => { $('version').textContent = `v${version}`; });
+
   const UPDATE_LABELS = {
     available: () => 'Обновить',
     downloading: ({ percent }) => `Скачиваю ${percent}%`,
