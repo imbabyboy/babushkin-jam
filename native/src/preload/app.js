@@ -48,4 +48,7 @@ contextBridge.exposeInMainWorld('desktop', {
   setHeight: (height) => ipcRenderer.send('yjam:window-height', height),
   copy: (text) => ipcRenderer.invoke('yjam:copy', text),
   openSongPage: (track) => ipcRenderer.invoke('yjam:open-song-page', track),
+  updateState: () => ipcRenderer.invoke('yjam:update-state'),
+  onUpdateState: (fn) => ipcRenderer.on('yjam:update-state', (_e, state) => fn(state)),
+  installUpdate: () => ipcRenderer.invoke('yjam:update-install'),
 });

@@ -26,6 +26,9 @@ jobs:
           for f in services/rooms/server.js shared/*.js extension/src/*.js extension/popup/*.js tools/*.js native/src/*.js native/src/mini/*.js native/src/toolbar/*.js native/src/settings/*.js native/scripts/*.js native/generated/*.js native/generated/settings/*.js; do node --check "$f"; done
           sh -n tools/build.sh
 
+      - name: Обновление приложения
+        run: node --test native/test/updater.test.js
+
       - name: manifest.json и сборка расширения
         run: |
           node tools/build-extension.js

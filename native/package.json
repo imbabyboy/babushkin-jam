@@ -1,7 +1,7 @@
 {
   "name": "babushkin-jam-desktop",
   "productName": "babushkin-jam",
-  "version": "0.1.9",
+  "version": "0.0.0",
   "private": true,
   "description": "Яндекс Музыка и совместное прослушивание в отдельном приложении для macOS и Windows",
   "license": "MIT",
@@ -11,9 +11,10 @@
   "scripts": {
     "bundle": "node scripts/bundle.js",
     "start": "npm run bundle && electron .",
-    "pack:mac-arm64": "npm run bundle && electron-builder --mac dir --arm64",
-    "dist:mac": "npm run bundle && electron-builder --mac",
-    "dist:win": "npm run bundle && electron-builder --win"
+    "pack:mac-arm64": "npm run bundle && electron-builder --config electron-builder.config.js --mac dir --arm64",
+    "dist:mac": "npm run bundle && electron-builder --config electron-builder.config.js --mac",
+    "dist:win": "npm run bundle && electron-builder --config electron-builder.config.js --win",
+    "test": "node --test test/updater.test.js"
   },
   "build": {
     "appId": "io.github.imbabyboy.babushkin-jam",

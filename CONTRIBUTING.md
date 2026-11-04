@@ -85,7 +85,7 @@ node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json'))"
 
 ## Релиз
 
-1. Поднять `version` в `extension/manifest.json` и дописать `CHANGELOG.md`.
+1. Поднять `version` в `extension/manifest.json` и дописать `CHANGELOG.md`. Этот номер получает и приложение: кнопка «Обновить» появляется только при новой версии, поэтому правка только в приложении тоже требует нового номера.
 2. Смержить в `main`. Если менялось расширение или приложение, GitHub Actions соберёт zip, два dmg и exe. Новая версия создаст релиз `v<версия>`, при той же версии файлы в нём заменятся. Тег ставить не нужно.
 3. Проверить файлы на странице [релизов](https://github.com/imbabyboy/babushkin-jam/releases).
 4. Загрузить zip в [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) → babushkin-jam → «Пакет» → «Загрузить новый пакет» и отправить на проверку.

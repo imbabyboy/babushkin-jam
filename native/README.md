@@ -48,6 +48,8 @@ npm run dist:win        # ../dist/native/babushkin-jam Setup <версия>.exe
 
 Задача «build-all» (`sh tools/build-all.sh`) пересобирает всё сразу: приложение для обоих Mac и Windows и расширение. Файлы с понятными именами появляются в `dist/builds/`, установленное приложение она не трогает.
 
+Версия приложения берётся из `extension/manifest.json`, в `package.json` её поднимать не нужно. При запуске из исходников (`npm start`) видна версия 0.0.0, обновления не проверяются. Тесты обновления: `npm test`.
+
 Обе сборки делаются и на Mac. На GitHub их собирает workflow «Release» при мерже в `main`, готовые файлы — на странице [релизов](https://github.com/imbabyboy/babushkin-jam/releases).
 
 ## Первый запуск собранного приложения
