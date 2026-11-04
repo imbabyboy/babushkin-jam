@@ -10,6 +10,8 @@
 #   JAM_HTTPS_PORT    порт HTTPS/WSS, по умолчанию 8443
 #   JAM_HTTP_PUBLISH  куда публиковать HTTP-порт Caddy (нужен Let's Encrypt), по умолчанию 80.
 #                     Например 127.0.0.1:8081, если порт 80 занят nginx и он проксирует туда домен.
+#   JAM_CADDY_SITES   адреса для Caddy вместо домена, см. docs/SELF_HOSTING.md
+#   JAM_SUBDOMAINS    1, если сервисы отвечают на поддоменах sync и share, см. docs/SELF_HOSTING.md
 set -e
 
 ENV_FILE="$(dirname "$0")/.env"
@@ -21,15 +23,15 @@ fi
 
 : "${JAM_HOST:?не задан JAM_HOST — см. deploy/.env.example}"
 : "${JAM_DOMAIN:?не задан JAM_DOMAIN — см. deploy/.env.example}"
-JAM_HTTPS_PORT="${JAM_HTTPS_PORT:-8443}"
 JAM_HTTP_PUBLISH="${JAM_HTTP_PUBLISH:-80}"
+. "$(dirname "$0")/common.sh"
 
 DIR=/opt/yandex-jam
 
 ssh "$JAM_HOST" "mkdir -p $DIR"
 scp services/rooms/server.js services/rooms/privacy.html services/rooms/package.json services/rooms/package-lock.json deploy/Dockerfile "$JAM_HOST:$DIR/"
 # в Caddyfile домен и порт подставляются при деплое
-sed -e "/^#/!s|{\$JAM_DOMAIN}|$JAM_DOMAIN|" -e "/^#/!s|{\$JAM_HTTPS_PORT}|$JAM_HTTPS_PORT|" deploy/Caddyfile | ssh "$JAM_HOST" "cat > $DIR/Caddyfile"
+render_caddyfile | ssh "$JAM_HOST" "cat > $DIR/Caddyfile"
 
 ssh "$JAM_HOST" "set -e
 cd $DIR
@@ -48,4 +50,4 @@ else
 fi
 docker ps --filter name=yandex-jam --format '{{.Names}}: {{.Status}}'
 "
-echo "Готово: wss://$JAM_DOMAIN:$JAM_HTTPS_PORT"
+echo "Готово: $JAM_ROOMS_URL"

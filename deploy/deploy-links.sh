@@ -1,5 +1,5 @@
 #!/bin/sh
-# Деплой сервиса ссылок: отдельный контейнер рядом с сервером комнат, наружу отвечает через Caddy на /links/.
+# Деплой сервиса ссылок: отдельный контейнер рядом с сервером комнат, наружу отвечает через Caddy на /links/ или на поддомене share.
 # Сервер комнат не перезапускает: Caddy только перечитывает настройки.
 # Ключи API лежат на сервере в /opt/song-links/.env, в репозиторий не попадают. Запуск из корня: sh deploy/deploy-links.sh
 set -e
@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 [ -f deploy/.env ] && . deploy/.env
 : "${JAM_HOST:?не задан JAM_HOST — см. deploy/.env.example}"
 : "${JAM_DOMAIN:?не задан JAM_DOMAIN — см. deploy/.env.example}"
-JAM_HTTPS_PORT="${JAM_HTTPS_PORT:-8443}"
+. deploy/common.sh
 
 DIR=/opt/song-links
 TMP=$(mktemp -d)
@@ -30,8 +30,7 @@ docker run -d --name song-links --network yandex-jam --restart unless-stopped \
   --env-file $DIR/.env -v song-links-data:/data song-links >/dev/null
 "
 
-sed -e "/^#/!s|{\$JAM_DOMAIN}|$JAM_DOMAIN|" -e "/^#/!s|{\$JAM_HTTPS_PORT}|$JAM_HTTPS_PORT|" deploy/Caddyfile \
-  | ssh "$JAM_HOST" "cat > /opt/yandex-jam/Caddyfile"
+render_caddyfile | ssh "$JAM_HOST" "cat > /opt/yandex-jam/Caddyfile"
 ssh "$JAM_HOST" "docker exec yandex-jam-caddy caddy reload --config /etc/caddy/Caddyfile && docker ps --filter name=song-links --format '{{.Names}}: {{.Status}}'"
 
-echo "Готово: https://$JAM_DOMAIN:$JAM_HTTPS_PORT/links/"
+echo "Готово: $JAM_LINKS_URL"

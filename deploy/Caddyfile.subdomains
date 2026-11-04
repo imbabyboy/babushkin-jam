@@ -1,0 +1,18 @@
+
+# Отдельные поддомены за nginx (deploy/nginx-domain.conf): синхронизация, сервис ссылок, политика на основном домене.
+http://sync.{$JAM_BASE_DOMAIN} {
+	import rooms
+}
+
+http://share.{$JAM_BASE_DOMAIN} {
+	import links
+}
+
+http://{$JAM_BASE_DOMAIN} {
+	handle /privacy* {
+		import rooms
+	}
+	handle {
+		redir https://share.{$JAM_BASE_DOMAIN}/
+	}
+}

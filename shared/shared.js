@@ -2,10 +2,12 @@
 // Подключается раньше остальных скриптов и объявляет глобальный YJam.
 
 var YJam = (() => {
-  const SERVER_URL = 'wss://141-11-197-134.sslip.io:9443';
+  const SERVER_URL = 'wss://sync.babushkin-jam.store';
   const OLD_LOCAL_SERVER = 'ws://localhost:8787'; // умолчание до настроек версии 2
   const OLD_PROD_SERVER = 'wss://141-11-197-57.sslip.io:8443'; // умолчание до настроек версии 3, тот VPS удалён
-  const SETTINGS_VERSION = 3;
+  const OLD_IP_SERVER = 'wss://141-11-197-134.sslip.io:9443'; // умолчание до настроек версии 4, адрес без домена
+  const OLD_ROOT_SERVER = 'wss://babushkin-jam.store'; // умолчание до настроек версии 5, синхронизация переехала на поддомен
+  const SETTINGS_VERSION = 5;
 
   const DEFAULTS = { serverUrl: SERVER_URL, name: '', room: '' };
 
@@ -42,8 +44,8 @@ var YJam = (() => {
 
   const normalizeCode = (code) => String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 
-  // Сервис ссылок на песню. Своего домена пока нет, он отвечает на том же адресе, что и сервер комнат.
-  const LINKS_URL = SERVER_URL.replace(/^wss:/, 'https:') + '/links/';
+  // Сервис ссылок на песню.
+  const LINKS_URL = 'https://share.babushkin-jam.store/';
 
   function songPageUrl({ artist, title, album, duration, id, albumId }) {
     const params = new URLSearchParams();
@@ -67,7 +69,9 @@ var YJam = (() => {
     const patch = {};
     if (!s.name) patch.name = randomName();
     const stale = (s.settingsVersion < 2 && s.serverUrl === OLD_LOCAL_SERVER)
-      || (s.settingsVersion < 3 && s.serverUrl === OLD_PROD_SERVER);
+      || (s.settingsVersion < 3 && s.serverUrl === OLD_PROD_SERVER)
+      || (s.settingsVersion < 4 && s.serverUrl === OLD_IP_SERVER)
+      || (s.settingsVersion < 5 && s.serverUrl === OLD_ROOT_SERVER);
     if (!s.serverUrl || stale) {
       patch.serverUrl = SERVER_URL;
     }
