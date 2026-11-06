@@ -27,18 +27,23 @@ if (isMusicSite) {
 
   /*__EXTENSION_SCRIPTS__*/
 
-  // Перемотка с плеера. В content.js такого сообщения нет, поэтому идём сразу в page.js:
-  // событие seeked уйдёт в комнату обычным путём, как перемотка человеком.
-  let seekSeq = 0;
-  const seek = (position) => window.postMessage(
-    { source: 'yjam-cs', id: 'desktop-seek-' + (++seekSeq), cmd: 'seek', args: { position } },
+  // Перемотка и громкость с плеера. В content.js таких сообщений нет, поэтому идём сразу в page.js:
+  // событие seeked уйдёт в комнату обычным путём, как перемотка человеком, а громкость у каждого своя.
+  let pageSeq = 0;
+  const toPage = (cmd, args) => window.postMessage(
+    { source: 'yjam-cs', id: 'desktop-' + cmd + '-' + (++pageSeq), cmd, args },
     location.origin,
   );
 
   // Сообщения от главного процесса — как chrome.tabs.sendMessage в расширении.
   ipcRenderer.on('yjam:message', (_e, id, msg) => {
     if (msg.type === 'yjam:seek') {
-      seek(msg.position);
+      toPage('seek', { position: msg.position });
+      ipcRenderer.send('yjam:reply', id, { ok: true });
+      return;
+    }
+    if (msg.type === 'yjam:volume') {
+      toPage('volume', { level: msg.level, before: msg.before });
       ipcRenderer.send('yjam:reply', id, { ok: true });
       return;
     }

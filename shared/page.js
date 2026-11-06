@@ -703,8 +703,85 @@
     }
   }
 
+  // ---------- громкость ----------
+  // Те же вызовы, что у ползунка сайта: он не расходится с нашим, а уровень сохраняет сам сайт.
+  // Уровень 0…1 — положение ползунка, а не громкость <audio>. Уровень до mute сайт держит в этой
+  // же куке, поэтому кнопка сайта вернёт звук, выключенный у нас, и наоборот.
+  const PREV_VOLUME_COOKIE = 'ymPlayerPrevVolume';
+  const PREV_VOLUME_MAX_AGE_SEC = 365 * 24 * 3600;
+
+  // Формат куки сайта: {"value":0.5}, закодированный для адреса.
+  function readPrevVolume() {
+    const found = document.cookie.match(new RegExp('(?:^|; )' + PREV_VOLUME_COOKIE + '=([^;]*)'));
+    if (!found) return 1;
+    try {
+      const level = JSON.parse(decodeURIComponent(found[1])).value;
+      return level > 0 && level <= 1 ? level : 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+
+  function writePrevVolume(level) {
+    const value = encodeURIComponent(JSON.stringify({ value: level }));
+    document.cookie = PREV_VOLUME_COOKIE + '=' + value + '; path=/; max-age=' + PREV_VOLUME_MAX_AGE_SEC;
+  }
+
+  function clearPrevVolume() {
+    document.cookie = PREV_VOLUME_COOKIE + '=; path=/; max-age=0';
+  }
+
+  function volumeLevel() {
+    try {
+      const player = findSitePlayer();
+      const level = player && player.state.playerState.exponentVolume.value;
+      return typeof level === 'number' ? level : null;
+    } catch (e) {
+      return null; // сайт поменял устройство плеера: кнопка просто выключится
+    }
+  }
+
   // ---------- 7. Команды ----------
   const api = () => window.externalAPI;
+
+  // Возвращает трек на нужную секунду: играет дальше или стоит на паузе, как было при выходе.
+  // До первого плея у сайта нет ни файла, ни перемотки, поэтому трек включаем в любом случае;
+  // звук на это время выключает приложение.
+  const RESTORE_TRACK_WAIT_MS = 6000; // сайт может сам вернуть последний трек аккаунта
+  const RESTORE_MEDIA_WAIT_MS = 10000;
+  const RESTORE_CHECK_MS = 200;
+
+  async function waitUntil(check, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (check()) return true;
+      await sleep(RESTORE_CHECK_MS);
+    }
+    return check();
+  }
+
+  async function restorePlayback({ id, albumId, position, paused }) {
+    const wanted = String(id);
+    const isWanted = () => {
+      const track = currentTrack();
+      return !!track && String(track.id) === wanted;
+    };
+    const isSounding = () => {
+      const el = activeMedia();
+      return isWanted() && !!el && !el.paused && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+    };
+    await waitUntil(isWanted, RESTORE_TRACK_WAIT_MS);
+    if (isWanted()) {
+      if (snapshot().paused) await commands.play();
+    } else {
+      const started = await playTrack({ id: wanted, albumId });
+      if (!started.ok || started.reload) return started;
+    }
+    const ready = await waitUntil(isSounding, RESTORE_MEDIA_WAIT_MS);
+    if (ready && position > 0) await commands.seek({ position });
+    if (paused || !ready) await commands.pause();
+    return ready ? { ok: true } : { ok: false, error: 'трек не заиграл' };
+  }
 
   const commands = {
     state() {
@@ -719,7 +796,33 @@
         ...snapshot(),
         hasMedia: !!activeMedia(),
         modes: playModes(),
+        volume: volumeLevel(),
       };
+    },
+
+    // before — уровень до того, как ползунок увели в ноль: иначе кнопка вернула бы сразу полную громкость.
+    volume({ level, before }) {
+      const player = findSitePlayer();
+      if (!player || volumeLevel() === null) return { ok: false, error: 'не нашёл плеер сайта' };
+      const next = Math.min(1, Math.max(0, Number(level) || 0));
+      if (next === 0 && before > 0) writePrevVolume(before);
+      player.setExponentVolume(next);
+      return { ok: true, level: next };
+    },
+
+    mute() {
+      const player = findSitePlayer();
+      const level = volumeLevel();
+      if (!player || level === null) return { ok: false, error: 'не нашёл плеер сайта' };
+      if (level !== 0) {
+        writePrevVolume(level);
+        player.setExponentVolume(0);
+        return { ok: true, level: 0 };
+      }
+      const restored = readPrevVolume();
+      clearPrevVolume();
+      player.setExponentVolume(restored);
+      return { ok: true, level: restored };
     },
 
     shuffle() {
@@ -794,6 +897,7 @@
     },
 
     playTrack,
+    restore: restorePlayback,
 
     queue: readQueue,
     queuePlay: playFromQueue,
@@ -872,7 +976,10 @@
     seek: (s) => commands.seek({ position: s }),
     next: () => commands.next(),
     prev: () => commands.prev(),
+    volume: (level, before) => commands.volume({ level, before }),
+    mute: () => commands.mute(),
     queue: () => commands.queue(),
     playTrack: (id, albumId) => playTrack({ id, albumId }),
+    restore: (id, albumId, position, paused) => restorePlayback({ id, albumId, position, paused }),
   };
 })();

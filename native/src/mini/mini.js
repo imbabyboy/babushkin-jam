@@ -3,6 +3,12 @@
 
 (() => {
   const PRESS_HOLD_MS = 1500;
+  const DRAG_START_PX = 3; // дрогнувшая при клике рука — ещё не перетаскивание
+  const VOLUME_OPEN_MS = 120; // курсор просто прошёл над значком — всплывашка не нужна
+  const VOLUME_CLOSE_MS = 120;
+  const VOLUME_POP_PADDING_PX = 8;
+  const VOLUME_POP_MARGIN_PX = 8;
+  const VOLUME_POP_GAP_PX = 8; // между процентами и значком
   const QUEUE_REFRESH_MS = 1500;
   const QUEUE_SCROLL_PAUSE_MS = 4000; // сколько не трогаем список после прокрутки рукой
   const COPIED_MS = 1200;
@@ -32,11 +38,17 @@
     $('icon-pause').toggleAttribute('hidden', paused);
   }
 
-  function renderTrack(player, page) {
+  function renderTrack(player, page, loading) {
     const track = player && player.track;
-    $('title').textContent = track ? track.title : page === 'music' ? 'Ничего не играет' : 'Яндекс Музыка не открыта';
+    $('loading').hidden = !loading;
+    $('title').hidden = loading;
+    $('artist').hidden = loading;
+    $('title').textContent = track ? track.title : page === 'other' ? 'Яндекс Музыка не открыта' : 'Случайный';
     $('artist').textContent = track ? track.artist : '';
 
+    const random = !track && page === 'music' && !loading;
+    $('cover-box').classList.toggle('random', random);
+    $('cover-random').toggleAttribute('hidden', !random);
     const cover = track && track.cover;
     if (cover && $('cover').getAttribute('src') !== cover) $('cover').src = cover;
     $('cover').hidden = !cover;
@@ -45,7 +57,10 @@
     const paused = Date.now() < pressedUntil ? pressedPaused : !player || player.paused;
     showPaused(paused);
     // До первого плея сайт не сообщает трек, но включить музыку уже можно.
-    $('toggle').disabled = page !== 'music';
+    // Пока сайт грузится или трек возвращается, нажатие всё равно отменилось бы.
+    $('toggle').disabled = page !== 'music' || loading;
+    $('queue').disabled = loading;
+    if (loading && openPanel === 'queue') setPanel(null);
     for (const id of ['prev', 'next']) $(id).disabled = !track;
 
     duration = (player && player.duration) || 0;
@@ -70,6 +85,86 @@
     $('repeat').title = REPEAT_TITLES[modes.repeat] || REPEAT_TITLES.none;
   }
 
+  // ---------- громкость ----------
+  let volumeLevel = 1;
+  let volumeHeldUntil = 0;
+  let volumeDragFrom = null; // уровень в начале перетаскивания, он же вернётся по кнопке, если увели в ноль
+  let volumeTimer = null;
+
+  function showVolume(level) {
+    volumeLevel = level;
+    const percent = Math.round(level * 100);
+    const label = level === 0 ? 'Включить звук' : 'Выключить звук';
+    $('volume-slider').value = percent;
+    $('volume-slider').style.setProperty('--fill', percent + '%');
+    $('volume-value').textContent = percent + '%';
+    $('mute').dataset.level = level === 0 ? 'off' : level < 0.5 ? 'low' : 'high';
+    $('mute').setAttribute('aria-pressed', String(level === 0));
+    $('mute').setAttribute('aria-label', label);
+  }
+
+  function renderVolume(player) {
+    const level = player && typeof player.volume === 'number' ? player.volume : null;
+    $('mute').disabled = level === null;
+    if (level === null) closeVolume();
+    // Пока тянем ползунок или только что нажали, опрос мог принести старый уровень.
+    if (level !== null && volumeDragFrom === null && Date.now() >= volumeHeldUntil) showVolume(level);
+  }
+
+  // Значок попадает внутрь всплывашки на своё же место, его правый край совпадает с её правым краем:
+  // справа от значка отступом служит поле самой кнопки. По высоте отступ меньше, если снизу мало места.
+  function openVolume() {
+    clearTimeout(volumeTimer);
+    if ($('mute').disabled || !$('volume-pop').hidden) return;
+    const pop = $('volume-pop');
+    const box = $('mute').closest('.player').getBoundingClientRect();
+    const icon = $('mute').getBoundingClientRect();
+    const padY = Math.min(VOLUME_POP_PADDING_PX, box.bottom - VOLUME_POP_MARGIN_PX - icon.bottom);
+    pop.style.top = icon.top - box.top - padY + 'px';
+    pop.style.height = icon.height + padY * 2 + 'px';
+    pop.style.paddingRight = box.right - VOLUME_POP_MARGIN_PX - icon.left + VOLUME_POP_GAP_PX + 'px';
+    pop.hidden = false;
+  }
+
+  function closeVolume() {
+    clearTimeout(volumeTimer);
+    $('volume-pop').hidden = true;
+  }
+
+  $('volume').addEventListener('pointerenter', () => {
+    clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(openVolume, VOLUME_OPEN_MS);
+  });
+  $('volume').addEventListener('pointerleave', () => {
+    clearTimeout(volumeTimer);
+    if (volumeDragFrom === null) volumeTimer = setTimeout(closeVolume, VOLUME_CLOSE_MS);
+  });
+  // Клавиатура: значок получил фокус табом. Клик мышью сюда не попадает, иначе всплывашка осталась бы открытой.
+  $('volume').addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) openVolume(); });
+  $('volume').addEventListener('focusout', (e) => {
+    if (!$('volume').contains(e.relatedTarget) && !$('volume').matches(':hover')) closeVolume();
+  });
+
+  $('volume-slider').addEventListener('pointerdown', () => { volumeDragFrom = volumeLevel; });
+  window.addEventListener('pointerup', () => {
+    if (volumeDragFrom === null) return;
+    volumeDragFrom = null;
+    volumeHeldUntil = Date.now() + PRESS_HOLD_MS;
+    if (!$('volume').matches(':hover')) volumeTimer = setTimeout(closeVolume, VOLUME_CLOSE_MS);
+  });
+  $('volume-slider').addEventListener('input', (e) => {
+    const before = volumeDragFrom === null ? volumeLevel : volumeDragFrom;
+    const level = Number(e.target.value) / 100;
+    volumeHeldUntil = Date.now() + PRESS_HOLD_MS;
+    showVolume(level);
+    desktop.setVolume(level, before);
+  });
+  $('mute').onclick = async () => {
+    volumeHeldUntil = Date.now() + PRESS_HOLD_MS;
+    const result = await desktop.control('mute');
+    if (result && result.ok) showVolume(result.level);
+  };
+
   // Подсказка важнее всего остального: она объясняет, почему не играет.
   function renderNotice(page, status) {
     let text = '';
@@ -77,8 +172,6 @@
     if (page === 'other') {
       text = 'Войдите в Яндекс в полном окне';
       action = 'full';
-    } else if (page === 'loading') {
-      text = 'Загружаем Яндекс Музыку…';
     } else if (status && status.autoplayBlocked) {
       text = 'Нажмите, чтобы включить звук';
       action = 'full';
@@ -98,9 +191,12 @@
   }
 
   function render(data) {
-    const { page, status } = data;
+    const { page, status, restoring } = data;
     const player = status && status.player && status.player.ok ? status.player : null;
-    renderTrack(player, page);
+    // Пока идёт возврат, сайт показывает то, что вспомнил сам: это ещё не наш трек.
+    const loading = page === 'loading' || !!restoring;
+    renderTrack(loading ? null : player, page, loading);
+    renderVolume(loading ? null : player);
     const trackId = player && player.track && player.track.id;
     if (trackId && trackId !== lastTrackId) {
       lastTrackId = trackId;
@@ -163,6 +259,20 @@
   let scrollToCurrent = false;
   let scrolledAt = 0;
   let programScroll = false;
+  let savedQueueKey = null;
+  // Список прошлого запуска. Опрос сайта дождётся его, иначе затёр бы сохранённое своим.
+  const queueLoaded = desktop.savedQueue().then((saved) => {
+    if (!saved) return;
+    queueTracks = saved.tracks;
+    queueCurrentId = saved.currentId;
+  });
+
+  function persistQueue() {
+    const key = JSON.stringify([queueTracks.map((t) => t.id), queueCurrentId]);
+    if (key === savedQueueKey) return;
+    savedQueueKey = key;
+    desktop.saveQueue(queueTracks, queueCurrentId);
+  }
 
   function siteButton(track) {
     const button = document.createElement('button');
@@ -254,6 +364,7 @@
     const now = queue.tracks[queue.current];
     if (now) queueCurrentId = now.id;
     else if (lastTrackId) queueCurrentId = lastTrackId;
+    persistQueue();
   }
 
   function renderQueue() {
@@ -294,6 +405,7 @@
     }
     queueBusy = true;
     try {
+      await queueLoaded;
       mergeQueue(await desktop.queue());
       if (openPanel === 'queue') renderQueue();
     } finally {
@@ -304,6 +416,15 @@
       }
     }
   }
+
+  // Сброс в настройках: сверху ничего не остаётся, только то, что сейчас в очереди сайта.
+  desktop.onPlaybackReset(() => {
+    queueTracks = [];
+    queueCurrentId = null;
+    queueKey = null;
+    savedQueueKey = null;
+    refreshQueue();
+  });
 
   $('queue').onclick = () => togglePanel('queue');
   $('queue-list').addEventListener('scroll', () => { if (!programScroll) scrolledAt = Date.now(); });
@@ -320,6 +441,7 @@
   // ---------- вид плеера ----------
   function showView(view) {
     document.body.dataset.view = view;
+    closeVolume(); // позиция считалась для прошлого вида
     // В нано нет кнопок, которыми панель можно было бы закрыть.
     if (view === 'nano' && openPanel) setPanel(null);
     fitWindow();
@@ -348,6 +470,30 @@
   };
 
   $('jam').onclick = () => openOver('main');
+
+  // ---------- перетаскивание и двойной клик ----------
+  const isControl = (target) => !!target.closest('button, input, .queue-panel, .volume-pop');
+  let dragStart = null;
+  let dragging = false;
+
+  $('app').addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || isControl(e.target)) return;
+    dragStart = { x: e.screenX, y: e.screenY };
+    $('app').setPointerCapture(e.pointerId); // курсор уйдёт за край окна раньше, чем окно его догонит
+  });
+  $('app').addEventListener('pointermove', (e) => {
+    if (!dragStart || dragging) return;
+    if (Math.hypot(e.screenX - dragStart.x, e.screenY - dragStart.y) < DRAG_START_PX) return;
+    dragging = true;
+    desktop.dragWindow(true);
+  });
+  function endDrag() {
+    if (dragging) desktop.dragWindow(false);
+    dragging = false;
+    dragStart = null;
+  }
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) $('app').addEventListener(type, endDrag);
+  $('app').addEventListener('dblclick', (e) => { if (!isControl(e.target)) desktop.setMode('full'); });
 
   desktop.onStatus(render);
   fitWindow();

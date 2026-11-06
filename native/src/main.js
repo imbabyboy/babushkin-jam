@@ -16,6 +16,12 @@ const MUSIC_URL = 'https://music.yandex.ru/';
 const RELEASES_URL = 'https://github.com/imbabyboy/babushkin-jam/releases/latest';
 const MUSIC_HOST_RE = /(^|\.)music\.yandex\.(ru|com|by|kz)$/;
 const POLL_MS = 1000;
+const MINI_DRAG_TICK_MS = 16;
+const PLAYBACK_SAVE_MS = 5000;
+const PLAYBACK_END_MARGIN_SEC = 5; // с самого конца начинать незачем: трек тут же кончится
+const PLAYBACK_QUEUE_MAX = 1000;
+const RESTORE_TIMEOUT_MS = 60000;
+const RESTORE_ROOM_WAIT_MS = 5000; // столько ждём ответа сервера, одни ли мы в комнате
 const STATUS_TIMEOUT_MS = 2500;
 const MESSAGE_TIMEOUT_MS = 15000;
 const RETRY_LOAD_MS = 5000;
@@ -50,7 +56,7 @@ const HOTKEYS = [
   { accelerator: 'CommandOrControl+Alt+J', label: 'Показать или скрыть плеер', run: () => toggleMini() },
 ];
 const MINI_VIEWS = { nano: 'Нано', micro: 'Микро', normal: 'Нормальный' };
-const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, miniView: 'micro', hotkeys: true, trayIcon: true };
+const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, miniView: 'micro', hotkeys: true, trayIcon: true, rememberPlayback: true };
 // Что окна настроек могут спрашивать у страницы Музыки — то же, что попап расширения у вкладки.
 const MUSIC_MESSAGES = new Set(['yjam:status', 'yjam:diag', 'yjam:control', 'yjam:resync']);
 
@@ -75,6 +81,13 @@ let htmlFullScreen = false;
 let lastStatus = { page: 'loading', status: null };
 let failedHotkeys = [];
 let menuKey = '';
+let miniDrag = null;     // тащим плеер: отступ курсора от угла окна и таймер
+let playbackStore = null; // трек, время и плейлист: меняются часто, поэтому не в настройках
+let restoreState = 'waiting'; // waiting, reload (страница перезагружается), running, done
+let restoreWaitFrom = 0;
+let playbackSavedAt = 0;
+let playbackForgotten = false; // сбросили: снова запоминаем, только когда музыку включат
+let latestQueue = null;
 
 // Должно быть до готовности приложения. Звук не ждёт клика по странице: иначе кнопки плеера
 // и горячие клавиши не включали бы музыку после запуска.
@@ -107,6 +120,101 @@ function currentPage() {
     return MUSIC_HOST_RE.test(new URL(contents.getURL()).hostname) ? 'music' : 'other';
   } catch (e) {
     return 'loading';
+  }
+}
+
+// ---------- память о том, что играло ----------
+function rememberPlayback(status, force = false) {
+  if (restoreState !== 'done' || !prefs().rememberPlayback) return;
+  const player = status && status.player;
+  const track = player && player.ok && player.track;
+  // Пока трек меняется, позиция относится к прошлому.
+  if (!track || !track.id || player.loading || player.trackPending) return;
+  if (playbackForgotten) {
+    if (player.paused) return;
+    playbackForgotten = false;
+    if (latestQueue) playbackStore.set({ queue: latestQueue });
+  }
+  const { playback } = playbackStore.get({ playback: null });
+  const sameTrack = !!playback && playback.id === String(track.id);
+  if (!force && sameTrack && Date.now() - playbackSavedAt < PLAYBACK_SAVE_MS) return;
+  const nearEnd = player.duration > 0 && player.position > player.duration - PLAYBACK_END_MARGIN_SEC;
+  playbackSavedAt = Date.now();
+  playbackStore.set({
+    playback: {
+      id: String(track.id),
+      albumId: track.albumId ? String(track.albumId) : null,
+      position: nearEnd ? 0 : Math.round(player.position),
+      paused: !!player.paused,
+    },
+  });
+}
+
+function saveQueue(tracks, currentId) {
+  if (!Array.isArray(tracks)) return;
+  latestQueue = { tracks: tracks.slice(-PLAYBACK_QUEUE_MAX), currentId: currentId || null };
+  if (prefs().rememberPlayback && !playbackForgotten) playbackStore.set({ queue: latestQueue });
+}
+
+function forgetPlayback() {
+  playbackStore.remove(['playback', 'queue']);
+}
+
+// Кнопка «Сбросить»: на паузе трек и список больше не запоминаем, иначе после перезапуска они вернулись бы.
+function resetPlayback() {
+  forgetPlayback();
+  latestQueue = null;
+  playbackForgotten = true;
+  if (miniWindow) miniWindow.webContents.send('yjam:playback-reset');
+}
+
+// Есть что возвращать, но ещё не вернули: окна пишут «Загрузка…», а не случайный трек, показанный сайтом.
+function isRestoring() {
+  return restoreState !== 'done' && prefs().rememberPlayback && !!playbackStore.get({ playback: null }).playback;
+}
+
+// Кроме нас в комнате кто-то есть: трек и время задаёт она. Один в комнате — она подстраивается под нас.
+// Нет связи с сервером — тоже восстанавливаем: если там кто-то есть, после подключения комната своё вернёт.
+function roomDecides(status) {
+  return !!status.room && !!status.state && status.state.members.length > 1;
+}
+
+// Трек придётся включить, поэтому на это время выключаем звук окна.
+async function restorePlayback(status) {
+  if (restoreState !== 'waiting' || !status.player || !status.player.ok) return;
+  const { playback } = playbackStore.get({ playback: null });
+  if (!prefs().rememberPlayback || !playback) {
+    restoreState = 'done';
+    return;
+  }
+  if (status.room && !status.state) {
+    if (!restoreWaitFrom) restoreWaitFrom = Date.now();
+    if (Date.now() - restoreWaitFrom < RESTORE_ROOM_WAIT_MS) return;
+  }
+  if (roomDecides(status)) {
+    restoreState = 'done';
+    return;
+  }
+  restoreState = 'running';
+  const contents = musicContents();
+  let onNavigate = null;
+  const navigated = new Promise((resolve) => { onNavigate = resolve; });
+  contents.once('did-navigate', onNavigate); // сайт перезагрузился: ответа уже не будет
+  contents.setAudioMuted(true);
+  try {
+    const result = await Promise.race([
+      askMusic({ type: 'yjam:restore', ...playback, timeoutMs: RESTORE_TIMEOUT_MS }, RESTORE_TIMEOUT_MS),
+      navigated.then(() => ({ ok: false, error: 'страница перезагрузилась' })),
+    ]);
+    // На сайт с аккаунтом можно посмотреть только у автора: по этой записи видно, что случилось при запуске.
+    playbackStore.set({ lastRestore: { result, track: playback.id, position: playback.position } });
+  } finally {
+    if (!contents.isDestroyed()) {
+      contents.removeListener('did-navigate', onNavigate);
+      contents.setAudioMuted(false);
+    }
+    restoreState = 'done';
+    poll();
   }
 }
 
@@ -227,6 +335,7 @@ function createMainWindow() {
   });
   contents.on('enter-html-full-screen', () => { htmlFullScreen = true; layoutMusic(); });
   contents.on('leave-html-full-screen', () => { htmlFullScreen = false; layoutMusic(); });
+  contents.on('did-finish-load', () => { if (restoreState === 'reload') restoreState = 'waiting'; });
 
   // Ссылки «в новом окне»: Яндекс — внутри приложения (вход в аккаунт), остальное — в браузере.
   contents.setWindowOpenHandler(({ url }) => {
@@ -262,9 +371,11 @@ function createMiniWindow() {
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
     backgroundColor: BACKGROUND,
+    icon: path.join(ASSETS, 'icon.png'),
     title: 'babushkin-jam — плеер',
+    // Окно тащим сами, поэтому первый же клик по неактивному окну должен дойти до страницы.
+    acceptFirstMouse: true,
     webPreferences: {
       preload: path.join(GENERATED, 'preload-app.js'),
       contextIsolation: true,
@@ -278,13 +389,40 @@ function createMiniWindow() {
     e.preventDefault();
     setMode('tray');
   });
-  // Запоминаем место плеера, а не окна: над плеером могут быть раскрыты настройки.
-  miniWindow.on('moved', () => {
-    const { x, y } = miniWindow.getBounds();
-    store.set({ miniBounds: { x, y: y + playerOffset } });
-  });
+  miniWindow.on('moved', () => { if (!miniDrag) saveMiniPosition(); });
+  miniWindow.on('hide', stopMiniDrag);
   miniWindow.webContents.on('did-finish-load', () => { pushStatus(); pushSettingsState(); });
   miniWindow.loadFile(path.join(__dirname, 'mini', 'mini.html'));
+}
+
+// Запоминаем место плеера, а не окна: над плеером могут быть раскрыты настройки.
+function saveMiniPosition() {
+  const { x, y } = miniWindow.getBounds();
+  store.set({ miniBounds: { x, y: y + playerOffset } });
+}
+
+// Системная зона перетаскивания забирает клики себе, и двойной клик до страницы не дошёл бы.
+// Поэтому страница только говорит «начали» и «отпустили», а окно идёт за курсором отсюда.
+function startMiniDrag() {
+  if (!miniWindow || miniDrag) return;
+  const cursor = screen.getCursorScreenPoint();
+  const { x, y } = miniWindow.getBounds();
+  miniDrag = {
+    dx: cursor.x - x,
+    dy: cursor.y - y,
+    timer: setInterval(() => {
+      const now = screen.getCursorScreenPoint();
+      const { width, height } = miniWindow.getBounds();
+      miniWindow.setBounds({ x: now.x - miniDrag.dx, y: now.y - miniDrag.dy, width, height });
+    }, MINI_DRAG_TICK_MS),
+  };
+}
+
+function stopMiniDrag() {
+  if (!miniDrag) return;
+  clearInterval(miniDrag.timer);
+  miniDrag = null;
+  saveMiniPosition();
 }
 
 // Монитор могли отключить: тогда плеер показываем у края основного экрана, а не за его пределами.
@@ -461,13 +599,18 @@ async function poll() {
     lastStatus = { page, status };
     pushStatus();
     refreshMenus();
+    if (status) {
+      restorePlayback(status);
+      rememberPlayback(status);
+    }
   } finally {
     polling = false;
   }
 }
 
 function pushStatus() {
-  for (const w of [mainWindow, miniWindow, trayPanel]) if (w) w.webContents.send('yjam:status', lastStatus);
+  const data = { ...lastStatus, restoring: isRestoring() };
+  for (const w of [mainWindow, miniWindow, trayPanel]) if (w) w.webContents.send('yjam:status', data);
 }
 
 // ---------- комната из меню ----------
@@ -746,6 +889,10 @@ function onStoreChange(changes) {
   if (changes.miniOnTop) applyMiniOnTop();
   if (changes.miniView && miniWindow) layoutMini();
   if (changes.trayIcon) applyTrayIcon();
+  if (changes.rememberPlayback) {
+    if (!changes.rememberPlayback.newValue) forgetPlayback();
+    else if (latestQueue) playbackStore.set({ queue: latestQueue });
+  }
   // Меню собирается и при запуске, когда горячих клавиш ещё нет: применяем только изменение.
   if (changes.hotkeys) applyHotkeys();
   else refreshMenus();
@@ -764,7 +911,12 @@ function setupIpc() {
   handle('yjam:storage-remove', (keys) => store.remove(keys));
   handle('yjam:control', (action) => control(action));
   handle('yjam:seek', (position) => askMusic({ type: 'yjam:seek', position: Number(position) || 0 }));
+  handle('yjam:volume', (level, before) => askMusic({ type: 'yjam:volume', level: Number(level) || 0, before: Number(before) || 0 }));
   handle('yjam:queue', () => askMusic({ type: 'yjam:queue' }, STATUS_TIMEOUT_MS));
+  handle('yjam:saved-queue', () => (prefs().rememberPlayback ? playbackStore.get({ queue: null }).queue : null));
+  handle('yjam:save-queue', (tracks, currentId) => saveQueue(tracks, currentId));
+  handle('yjam:reset-playback', () => resetPlayback());
+  handle('yjam:drag-window', (on) => (on ? startMiniDrag() : stopMiniDrag()));
   handle('yjam:queue-play', async (index, id, albumId) => {
     const result = await askMusic({
       type: 'yjam:queue-play', index: Number(index), id: String(id), albumId: albumId ? String(albumId) : null,
@@ -781,7 +933,11 @@ function setupIpc() {
   handle('yjam:open-song-page', (track) => shell.openExternal(YJam.songPageUrl(track)));
   handle('yjam:toggle-settings', (page) => toggleSettings(page === 'settings' ? 'settings' : 'main'));
   handle('yjam:close-settings', () => closeSettings());
-  handle('yjam:reload-music', () => musicContents().reload());
+  handle('yjam:reload-music', () => {
+    rememberPlayback(lastStatus.status, true);
+    restoreState = 'reload';
+    musicContents().reload();
+  });
   handle('yjam:update-state', () => updater.getState());
   handle('yjam:update-install', () => updater.install());
   handle('yjam:music-ready', () => currentPage() === 'music');
@@ -790,7 +946,7 @@ function setupIpc() {
     const result = await askMusic(msg);
     if (msg.type === 'yjam:control') poll();
     // Попап предлагает открыть вкладку, пока плей не нажимали на самой странице. Здесь звук включается и так.
-    return msg.type === 'yjam:status' && result ? { ...result, canPlay: true } : result;
+    return msg.type === 'yjam:status' && result ? { ...result, canPlay: true, restoring: isRestoring() } : result;
   });
   handle('yjam:info', () => ({
     version: app.getVersion(),
@@ -882,7 +1038,10 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', revealApp);
   // Окна не закрываются, а прячутся, поэтому приложение живёт до явного выхода.
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => {
+    quitting = true;
+    if (playbackStore) rememberPlayback(lastStatus.status, true);
+  });
   app.on('window-all-closed', () => { if (!IS_MAC || quitting) app.quit(); });
   app.on('activate', revealApp);
   app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -890,6 +1049,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     YJam = loadShared();
     store = createStore(path.join(app.getPath('userData'), 'settings.json'), onStoreChange);
+    playbackStore = createStore(path.join(app.getPath('userData'), 'playback.json'), () => {});
     setupSession();
     setupAssets();
     setupUpdater();

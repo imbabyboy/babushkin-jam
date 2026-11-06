@@ -385,7 +385,8 @@
   let controlPlayAt = 0;
   async function control(action) {
     // У каждого свои: трек не меняется, а следующий в комнате всё равно выбирает очередь ведущего.
-    if (action === 'shuffle' || action === 'repeat') return pageCall(action);
+    // Громкость тем более личная.
+    if (action === 'shuffle' || action === 'repeat' || action === 'mute') return pageCall(action);
     noteLocalAction();
     if (action === 'toggle') {
       const s = await pageCall('state');
@@ -491,6 +492,15 @@
       ownTrackUntil = Date.now() + SWITCH_MS;
       pageCall('queuePlay', { index: msg.index, id: msg.id, albumId: msg.albumId }, SWITCH_MS).then((r) => {
         ownTrackUntil = r.ok && r.switching ? Date.now() + OWN_TRACK_MS : 0;
+        reply(r);
+      });
+      return true;
+    }
+    // Запуск приложения: вернуть трек и время. Главный процесс шлёт это, только если в комнате мы одни.
+    // Паузу и перемотку в конце события плеера в комнату не донесут (трек только что сменился), поэтому сообщаем итог сами.
+    if (msg.type === 'yjam:restore') {
+      pageCall('restore', { id: msg.id, albumId: msg.albumId, position: msg.position, paused: msg.paused }, msg.timeoutMs).then((r) => {
+        if (room) seedRoom();
         reply(r);
       });
       return true;
