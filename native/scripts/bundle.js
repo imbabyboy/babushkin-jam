@@ -68,6 +68,9 @@ popupJs = patch(popupJs, "'нет вкладки Яндекс Музыки'];", 
 popupJs = patch(popupJs, "{ error: 'нет вкладки Яндекс Музыки' }", "{ error: 'Яндекс Музыка не открыта' }");
 // Запрет на плей до первого клика есть только у вкладки браузера, приложение включает музыку само.
 popupJs = patch(popupJs, 'const locked = paused && st && st.canPlay === false;', 'const locked = false;');
+// Те же надписи, что в плеере: пустой плеер в приложении включает музыку первым же нажатием.
+popupJs = patch(popupJs, "st ? 'Ничего не играет' :", "st ? (st.restoring ? 'Загрузка…' : 'Случайный') :");
+popupJs = patch(popupJs, 'const t = (room && room.track) || (p && p.track);', 'const t = st && st.restoring ? null : (room && room.track) || (p && p.track);');
 fs.writeFileSync(path.join(SETTINGS, 'popup.js'), popupJs);
 
 console.log('generated/: расширение ' + JSON.parse(readExt('manifest.json')).version);

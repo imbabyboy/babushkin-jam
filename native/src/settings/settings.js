@@ -4,6 +4,7 @@
 
 (async () => {
   const PAGE_FRAME_MAX_MS = 50;
+  const RESET_DONE_MS = 1200;
   const inTray = document.documentElement.dataset.host === 'tray';
   const hide = () => (inTray ? desktop.hideTrayPanel() : desktop.closeSettings());
   const el = (tag, cls, text) => {
@@ -102,6 +103,16 @@
   const trayHint = el('p', 'disclaimer', info.platform === 'macOS'
     ? 'Если свернуть в трей, вернуть окно можно кликом по значку в Доке.'
     : 'Если свернуть в трей, вернуть окно можно повторным запуском приложения.');
+  const remember = checkbox('Запоминать плейлист, трек и время', (on) => chrome.storage.local.set({ rememberPlayback: on }));
+  const RESET_LABEL = 'Сбросить плейлист и трек';
+  const resetPlayback = el('button', 'btn-outline', RESET_LABEL);
+  let resetTimer = null;
+  resetPlayback.onclick = async () => {
+    await desktop.resetPlayback();
+    resetPlayback.textContent = 'Сброшено';
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => { resetPlayback.textContent = RESET_LABEL; }, RESET_DONE_MS);
+  };
   const hotkeys = checkbox('Горячие клавиши', (on) => chrome.storage.local.set({ hotkeys: on }));
 
   const keyList = el('dl', 'keys');
@@ -120,6 +131,8 @@
     onTop,
     trayIcon,
     trayHint,
+    remember,
+    resetPlayback,
     hotkeys,
     keyList,
   );
@@ -139,6 +152,7 @@
     onTop.show(p.miniOnTop);
     trayIcon.show(p.trayIcon);
     trayHint.hidden = p.trayIcon;
+    remember.show(p.rememberPlayback);
     hotkeys.show(p.hotkeys);
     keyList.hidden = !p.hotkeys;
   }

@@ -34,20 +34,25 @@ body {
 
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
 button:disabled { opacity: .35; cursor: default; }
-button, input { -webkit-app-region: no-drag; }
 svg { display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 svg.solid { fill: currentColor; stroke: none; }
 
-/* Окно без рамки: двигаем его за любое место, кроме кнопок и полей */
-#app { display: flex; flex-direction: column; -webkit-app-region: drag; }
+/* Окно без рамки: двигаем его за любое место, кроме кнопок и полей. Двигает mini.js, а не -webkit-app-region:
+   системная зона забирает клики себе, и двойной клик до страницы не дошёл бы. */
+#app { display: flex; flex-direction: column; }
+#app img { -webkit-user-drag: none; }
 
 .now { display: flex; align-items: center; gap: 10px; padding: 10px 8px 6px 10px; }
 .cover { width: 44px; height: 44px; flex: none; border-radius: 8px; overflow: hidden; background: var(--field); }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Трека нет: первое нажатие на плей включит то, что выберет сайт. */
+.cover.random { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #121212; }
+.cover-random { width: 55%; height: 55%; }
 .text { flex: 1; min-width: 0; }
 .title, .artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title { font-weight: 600; }
 .artist { color: var(--muted); font-size: 12.5px; min-height: 17px; }
+.loading { padding: 5px 9px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font-size: 12.5px; line-height: 1.3; }
 .window-buttons { display: flex; align-self: flex-start; flex: none; }
 
 .icon { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--soft); }
@@ -89,18 +94,39 @@ svg.solid { fill: currentColor; stroke: none; }
 .progress:hover span { background: var(--accent-hover); }
 .progress:disabled { opacity: 1; }
 
-/* Случайный порядок и повтор есть только в нормальном виде. */
+/* Режимы есть в микро и нормальном виде. */
 .modes { display: none; gap: 2px; }
 .mode { position: relative; }
 .mode[aria-pressed="true"], .mode[aria-pressed="true"]:hover:not(:disabled) { color: var(--accent); }
 .mode[data-mode="one"]::after { content: "1"; position: absolute; right: 3px; bottom: 2px; font: 700 9px/1 var(--sans); }
 
-/* Микро: без времени и перемотки, зато повтор, случайный порядок и плейлист. */
+/* Громкость. Всплывашка ложится на значок со всех сторон, а сам значок остаётся над ней на своём месте:
+   курсор с него сразу попадает на всплывашку, и закрывается она, только когда с неё ушли. Размеры — в openVolume(). */
+.player { position: relative; }
+.mute { position: relative; z-index: 2; width: 26px; height: 26px; color: var(--muted2); }
+.mute svg { width: 15px; height: 15px; }
+.mute svg .speaker { fill: currentColor; }
+.mute :is(.wave-low, .wave-high, .cross) { display: none; }
+.mute[data-level="low"] .wave-low, .mute[data-level="high"] :is(.wave-low, .wave-high), .mute[data-level="off"] .cross { display: inline; }
+.volume-pop {
+  position: absolute; right: 8px; width: 60%; z-index: 1; display: flex; align-items: center; gap: 8px; padding-left: 8px;
+  border: 1px solid var(--field-line); border-radius: 12px; background: var(--field); box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
+}
+/* Справа от значка видимой всплывашки нет: без этой полоски шаг вправо закрывал бы её. */
+.volume-pop::after { content: ""; position: absolute; top: 0; bottom: 0; left: 100%; width: 8px; }
+.volume-slider { flex: 1; min-width: 0; height: 20px; margin: 0; appearance: none; background: none; cursor: pointer; outline-offset: 2px; }
+.volume-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill, 100%), #3A3A3A 0); }
+.volume-slider::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; background: var(--accent); }
+.volume-slider:hover::-webkit-slider-thumb { background: var(--accent-hover); }
+.volume-value { flex: none; width: 34px; text-align: right; font: 500 11.5px var(--mono); color: var(--soft); }
+
+/* Микро: без времени и перемотки, зато повтор, случайный порядок, громкость и плейлист. */
 [data-view="micro"] :is(.time, .progress) { display: none; }
+[data-view="micro"] .tail { gap: 0; margin-right: -2px; }
 [data-view="micro"] .modes { display: flex; gap: 0; }
 [data-view="micro"] #repeat { order: -1; }
-[data-view="micro"] .mode { width: 26px; height: 26px; color: var(--muted2); }
-[data-view="micro"] .mode svg { width: 15px; height: 15px; }
+[data-view="micro"] .modes .icon { width: 26px; height: 26px; color: var(--muted2); }
+[data-view="micro"] .modes .icon svg { width: 15px; height: 15px; }
 
 /* Нормальный вид, самый крупный. Сетка из равных колонок: так управление стоит точно посередине окна,
    хотя ширина слева и справа от него разная. */
@@ -109,15 +135,16 @@ svg.solid { fill: currentColor; stroke: none; }
 [data-view="normal"] .jam { grid-area: 1 / 1 / 1 / 7; margin-left: 12px; }
 [data-view="normal"] .window-buttons { grid-area: 1 / 7 / 1 / 13; align-self: center; justify-self: end; margin-right: 8px; }
 [data-view="normal"] .cover { grid-area: 2 / 1 / 2 / 3; width: 64px; height: 64px; margin-left: 12px; border-radius: 9px; }
-[data-view="normal"] .text { grid-area: 2 / 3 / 2 / 11; margin-left: 23px; }
+[data-view="normal"] .text { grid-area: 2 / 3 / 2 / 10; margin-left: 23px; }
 /* Кнопки, отступы и надписи как в панели трея. */
 [data-view="normal"] .title { font-size: 13.5px; }
 [data-view="normal"] .artist { font-size: 12px; }
-[data-view="normal"] :is(.transport, .modes) .icon, [data-view="normal"] .list { width: 34px; height: 34px; border-radius: 9px; }
-[data-view="normal"] :is(.transport, .modes) .icon svg, [data-view="normal"] .list svg { width: 18px; height: 18px; }
+[data-view="normal"] :is(.transport, .modes) .icon, [data-view="normal"] :is(.list, .mute) { width: 34px; height: 34px; border-radius: 9px; }
+[data-view="normal"] :is(.transport, .modes) .icon svg, [data-view="normal"] :is(.list, .mute) svg { width: 18px; height: 18px; }
 [data-view="normal"] .play { width: 38px; height: 38px; }
 [data-view="normal"] .play svg { width: 17px; height: 17px; }
-[data-view="normal"] .list { grid-area: 2 / 11 / 2 / 13; justify-self: end; margin-right: 8px; }
+[data-view="normal"] .list { grid-area: 2 / 11 / 2 / 13; justify-self: end; margin-right: 44px; }
+[data-view="normal"] .volume { grid-area: 2 / 11 / 2 / 13; justify-self: end; margin-right: 8px; }
 [data-view="normal"] .time { grid-area: 3 / 1 / 3 / 5; margin-left: 12px; }
 [data-view="normal"] .transport { grid-area: 3 / 4 / 3 / 10; justify-self: center; gap: 14px; }
 [data-view="normal"] .modes { grid-area: 3 / 9 / 3 / 13; display: flex; justify-self: end; margin-right: 8px; }
@@ -137,8 +164,8 @@ svg.solid { fill: currentColor; stroke: none; }
 .notice:last-child { margin-bottom: 10px; }
 .notice:disabled { opacity: 1; }
 
-/* Плейлист: окно растёт на высоту списка, дальше список прокручивается. Без no-drag колесо и клики двигали бы окно. */
-.queue-panel { margin-top: 8px; border-top: 1px solid var(--line); -webkit-app-region: no-drag; }
+/* Плейлист: окно растёт на высоту списка, дальше список прокручивается. */
+.queue-panel { margin-top: 8px; border-top: 1px solid var(--line); }
 .queue-empty { margin: 0; padding: 14px 12px; color: var(--muted); font-size: 12.5px; }
 .queue-list { max-height: 320px; margin: 0; padding: 4px; overflow-y: auto; list-style: none; }
 .queue-list:empty { display: none; }
