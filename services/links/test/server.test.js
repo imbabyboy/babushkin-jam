@@ -115,6 +115,7 @@ test('короткая ссылка: код стабильный, страниц
   const second = await (await fetch(base + long)).json();
   assert.match(first.code, /^[0-9A-Za-z]{7}$/);
   assert.equal(second.code, first.code);
+  assert.equal((await fetch(base + long)).headers.get('access-control-allow-origin'), '*');
   assert.notEqual((await (await fetch(base + '/api/short?singer=CREAM+SODA&songname=Другая')).json()).code, first.code);
 
   const html = await (await fetch(`${base}/${first.code}`)).text();

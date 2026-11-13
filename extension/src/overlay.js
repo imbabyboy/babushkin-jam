@@ -460,7 +460,7 @@ var YJamOverlay = (() => {
       const b = e.target.closest('.track-share, .track-copy');
       if (!b || b.disabled) return;
       e.preventDefault();
-      copyTrack(b, b.classList.contains('track-share') ? YJam.songPageUrl : YJam.trackLink);
+      copyTrack(b, b.classList.contains('track-share') ? YJam.shortSongPageUrl : YJam.trackLink);
     });
 
     // Клики по пилюле — одним обработчиком: её содержимое перерисовывается.
@@ -546,7 +546,7 @@ var YJamOverlay = (() => {
     async function copyTrack(button, link = YJam.trackLink) {
       const t = view && currentTrack(view);
       if (!t || !t.id) return;
-      await copyText(link(t));
+      await copyText(await link(t));
       button.classList.add('copied');
       clearTimeout(copiedTrackTimer);
       copiedTrackTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);

@@ -47,14 +47,28 @@ var YJam = (() => {
   // Сервис ссылок на песню.
   const LINKS_URL = 'https://share.babushkin-jam.store/';
 
-  function songPageUrl({ artist, title, album, duration, id, albumId }) {
+  const SHORT_LINK_TIMEOUT_MS = 3000;
+
+  function songPageParams({ artist, title, album, duration, id, albumId }) {
     const params = new URLSearchParams();
     if (artist) params.set('singer', artist);
     if (title) params.set('songname', title);
     if (album) params.set('album', album);
     if (duration > 0) params.set('duration', String(Math.round(duration)));
     if (/^\d+$/.test(id)) params.set('ym', /^\d+$/.test(albumId) ? `${albumId}/${id}` : id);
-    return LINKS_URL + '?' + params;
+    return params;
+  }
+
+  const songPageUrl = (track) => LINKS_URL + '?' + songPageParams(track);
+
+  // Короткая ссылка для копирования: share.babushkin-jam.store/Ab3dE9x. Сервис не ответил — отдаём длинную.
+  async function shortSongPageUrl(track) {
+    try {
+      const res = await fetch(LINKS_URL + 'api/short?' + songPageParams(track), { signal: AbortSignal.timeout(SHORT_LINK_TIMEOUT_MS) });
+      const { code } = res.ok ? await res.json() : {};
+      if (/^[0-9A-Za-z]{7}$/.test(code)) return LINKS_URL + code;
+    } catch (e) {}
+    return songPageUrl(track);
   }
 
   const trackLink = ({ id, albumId }) =>
@@ -119,7 +133,7 @@ var YJam = (() => {
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {
-    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, trackLink, ensureSettings,
+    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, shortSongPageUrl, trackLink, ensureSettings,
     loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

@@ -91,7 +91,9 @@ function send(res, status, type, body, extra = {}) {
   res.end(res.req.method === 'HEAD' ? undefined : body);
 }
 
-const sendJson = (res, status, data) => send(res, status, 'application/json; charset=utf-8', JSON.stringify(data));
+const sendJson = (res, status, data, extra) => send(res, status, 'application/json; charset=utf-8', JSON.stringify(data), extra);
+// Короткий код спрашивают и виджет расширения на music.yandex.ru, и приложение: ответ открытый, кук нет.
+const OPEN_CORS = { 'Access-Control-Allow-Origin': '*' };
 
 export function createApp({ config = readConfig(), doFetch = fetch, cache: givenCache } = {}) {
   const cache = givenCache || createCache(config.dbPath);
@@ -127,10 +129,10 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
       if (url.pathname === '/health') return sendJson(res, 200, { ok: true });
 
       if (url.pathname === '/api/short') {
-        if (!shortLimiter.allow(clientIp(req))) return sendJson(res, 429, { error: 'Слишком много запросов, попробуйте через минуту' });
+        if (!shortLimiter.allow(clientIp(req))) return sendJson(res, 429, { error: 'Слишком много запросов, попробуйте через минуту' }, OPEN_CORS);
         const query = parseQuery(url.searchParams);
-        if (!query.kind) return sendJson(res, 400, { error: 'Укажите название песни, альбома или исполнителя' });
-        return sendJson(res, 200, { code: shorten(cache, query) });
+        if (!query.kind) return sendJson(res, 400, { error: 'Укажите название песни, альбома или исполнителя' }, OPEN_CORS);
+        return sendJson(res, 200, { code: shorten(cache, query) }, OPEN_CORS);
       }
 
       if (url.pathname === '/api/search') {

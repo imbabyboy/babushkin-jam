@@ -931,6 +931,8 @@ function setupIpc() {
   handle('yjam:copy', (text) => clipboard.writeText(String(text)));
   // Окно передаёт только данные трека, а адрес строится здесь: страница не может открыть произвольную ссылку.
   handle('yjam:open-song-page', (track) => shell.openExternal(YJam.songPageUrl(track)));
+  // Короткую ссылку спрашиваем отсюда: у окна плеера CSP без connect-src.
+  handle('yjam:copy-song-page', async (track) => clipboard.writeText(await YJam.shortSongPageUrl(track)));
   handle('yjam:toggle-settings', (page) => toggleSettings(page === 'settings' ? 'settings' : 'main'));
   handle('yjam:close-settings', () => closeSettings());
   handle('yjam:reload-music', () => {
