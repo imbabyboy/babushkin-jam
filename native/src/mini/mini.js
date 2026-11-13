@@ -14,8 +14,9 @@
   const COPIED_MS = 1200;
   const QUEUE_MAX_ROWS = 1000; // дальше забываем самые старые песни
   const SITE_ICON = '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M11 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg>';
+  const DONE_ICON = '<svg class="done-icon" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const COPY_ICONS = '<svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>'
-    + '<svg class="done-icon" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    + DONE_ICON;
   const $ = (id) => document.getElementById(id);
   let openPanel = null; // 'queue' или ничего
   let lastTrackId = null;
@@ -52,6 +53,7 @@
     const cover = track && track.cover;
     if (cover && $('cover').getAttribute('src') !== cover) $('cover').src = cover;
     $('cover').hidden = !cover;
+    renderLike(track && !loading ? player.liked : null);
 
     // Только что нажали плей или паузу: показываем результат нажатия, пока сайт его не выполнит.
     const paused = Date.now() < pressedUntil ? pressedPaused : !player || player.paused;
@@ -71,7 +73,27 @@
     renderModes(player, track);
   }
 
-  const REPEAT_TITLES = { none: 'Повтор: выключен', context: 'Повтор: вся очередь', one: 'Повтор: один трек' };
+  // ---------- лайк ----------
+  // liked: true/false, null — лайкнуть нельзя (нет трека, не вошли в аккаунт).
+  let likePressedUntil = 0;
+  let likePressed = false;
+
+  function renderLike(liked) {
+    const shown = liked !== null && liked !== undefined && Date.now() < likePressedUntil ? likePressed : liked;
+    $('like').hidden = typeof shown !== 'boolean';
+    $('like').setAttribute('aria-pressed', String(!!shown));
+    $('like').title = shown ? 'Убрать из «Мне нравится»' : 'Мне нравится';
+  }
+
+  $('like').onclick = async () => {
+    likePressed = $('like').getAttribute('aria-pressed') !== 'true';
+    likePressedUntil = Date.now() + PRESS_HOLD_MS;
+    renderLike(likePressed);
+    const result = await desktop.control('like');
+    if (!result || !result.ok) likePressedUntil = 0;
+  };
+
+  const REPEAT_TITLES ={ none: 'Повтор: выключен', context: 'Повтор: вся очередь', one: 'Повтор: один трек' };
 
   function renderModes(player, track) {
     const modes = (player && player.modes) || { shuffle: false, repeat: 'none', canShuffle: false, canRepeat: false };
@@ -277,12 +299,18 @@
   function siteButton(track) {
     const button = document.createElement('button');
     button.className = 'queue-action queue-site';
-    button.title = 'Уйти на сайт: ссылки на эту песню в других сервисах';
+    button.title = 'Уйти на сайт: ссылки на эту песню в других сервисах. Правый клик — скопировать ссылку';
     button.setAttribute('aria-label', 'Уйти на сайт');
-    button.innerHTML = SITE_ICON;
+    button.innerHTML = SITE_ICON.replace('<svg ', '<svg class="copy-icon" ') + DONE_ICON;
     button.onclick = (e) => {
       e.stopPropagation(); // клик по строке включил бы трек
       desktop.openSongPage(track);
+    };
+    // Правый клик: ссылку на страницу песни — в буфер, без перехода.
+    button.oncontextmenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      flashCopied(button, YJam.songPageUrl(track));
     };
     return button;
   }
@@ -293,15 +321,21 @@
     button.title = 'Скопировать ссылку на трек';
     button.setAttribute('aria-label', 'Скопировать ссылку на трек');
     button.innerHTML = COPY_ICONS;
-    let timer = null;
-    button.onclick = async (e) => {
+    // Правый клик копирует так же, как на кнопке сайта рядом.
+    button.onclick = button.oncontextmenu = (e) => {
+      e.preventDefault();
       e.stopPropagation(); // клик по строке включил бы трек
-      await desktop.copy(YJam.trackLink(track));
-      button.classList.add('copied');
-      clearTimeout(timer);
-      timer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
+      flashCopied(button, YJam.trackLink(track));
     };
     return button;
+  }
+
+  // Копирует и на секунду показывает галочку вместо значка.
+  async function flashCopied(button, text) {
+    await desktop.copy(text);
+    button.classList.add('copied');
+    clearTimeout(button.copiedTimer);
+    button.copiedTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
   }
 
   function queueRow(track, isCurrent) {

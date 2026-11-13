@@ -741,6 +741,57 @@
     }
   }
 
+  // ---------- лайк ----------
+  // Тот же стор, что у сердечка сайта: лайк сразу виден и на сайте, и в «Мне нравится».
+  // Корневой стор MobX лежит в контексте React, у него есть library (лайки) и user (uid).
+  let siteStore = null;
+
+  const isSiteStore = (o) => {
+    try {
+      return !!o && typeof o === 'object' && !!o.library && typeof o.library.isTrackLiked === 'function' &&
+        typeof o.library.toggleTrackLike === 'function' && !!o.user;
+    } catch (e) { return false; }
+  };
+
+  function findSiteStore() {
+    if (siteStore) return siteStore;
+    for (const b of document.querySelectorAll('button')) {
+      const key = Object.keys(b).find((k) => k.startsWith('__reactFiber'));
+      if (!key) continue;
+      for (let f = b[key], i = 0; f && i < 300; f = f.return, i++) {
+        for (let c = f.dependencies && f.dependencies.firstContext; c; c = c.next) {
+          const v = c.memoizedValue;
+          for (const o of [v, v && v.rootStore, v && v.store]) {
+            if (isSiteStore(o)) return (siteStore = o);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // Лайкаем то, что играет у сайта, а не наш id: тот угадан по ссылкам и мог отстать.
+  function playingTrackRef() {
+    const player = findSitePlayer();
+    const now = player && player.state.queueState.currentEntity.value;
+    const meta = now && now.entity && now.entity.data && now.entity.data.meta;
+    if (!meta || meta.id == null) return null;
+    const album = Array.isArray(meta.albums) && meta.albums[0];
+    return { id: String(meta.id), albumId: album && album.id != null ? String(album.id) : null };
+  }
+
+  // null — лайкнуть нельзя: без входа в аккаунт, без трека или сайт поменял устройство стора.
+  function likeState() {
+    try {
+      const store = findSiteStore();
+      const ref = playingTrackRef();
+      if (!store || !ref || !store.user.isAuthorized) return null;
+      return !!store.library.isTrackLiked(ref.id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ---------- 7. Команды ----------
   const api = () => window.externalAPI;
 
@@ -797,7 +848,17 @@
         hasMedia: !!activeMedia(),
         modes: playModes(),
         volume: volumeLevel(),
+        liked: likeState(),
       };
+    },
+
+    async like() {
+      const store = findSiteStore();
+      const ref = playingTrackRef();
+      if (!store || !ref || likeState() === null) return { ok: false, error: 'лайк недоступен' };
+      const userId = store.user.account.data.uid;
+      await store.library.toggleTrackLike({ entityId: ref.id, albumId: ref.albumId || undefined, userId });
+      return { ok: true, liked: likeState() };
     },
 
     // before — уровень до того, как ползунок увели в ноль: иначе кнопка вернула бы сразу полную громкость.
@@ -934,6 +995,7 @@
           fileInfo: idsFromFileInfo(meta),
         } : null,
         tracksIndexed: known.size,
+        like: { store: !!findSiteStore(), track: playingTrackRef(), liked: likeState() },
         queue: (() => {
           const q = readQueue();
           return q.ok ? { rows: q.tracks.length, current: q.current, total: q.total } : q.error;
@@ -978,6 +1040,7 @@
     prev: () => commands.prev(),
     volume: (level, before) => commands.volume({ level, before }),
     mute: () => commands.mute(),
+    like: () => commands.like(),
     queue: () => commands.queue(),
     playTrack: (id, albumId) => playTrack({ id, albumId }),
     restore: (id, albumId, position, paused) => restorePlayback({ id, albumId, position, paused }),

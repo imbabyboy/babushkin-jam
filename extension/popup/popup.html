@@ -7,7 +7,12 @@
 <body>
   <section id="now" class="player">
     <div class="player-track">
-      <div class="player-cover"><img id="now-cover" alt="" hidden></div>
+      <div class="player-cover">
+        <img id="now-cover" alt="" hidden>
+        <button id="like" class="like" title="Мне нравится" aria-label="Мне нравится" aria-pressed="false" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/></svg>
+        </button>
+      </div>
       <div class="player-text">
         <div id="now-title" class="player-title"></div>
         <div id="now-artist" class="player-artist"></div>
