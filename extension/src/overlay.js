@@ -57,8 +57,8 @@ var YJamOverlay = (() => {
     .track-action:hover:not(:disabled) { background: #3A3A3A; color: var(--fg); }
     .track-action:disabled { opacity: .35; cursor: default; }
     .track-action svg { width: 14px; height: 14px; stroke-width: 2; flex: none; }
-    .track-copy .done-icon, .track-copy.copied .copy-icon { display: none; }
-    .track-copy.copied .done-icon { display: block; color: var(--accent); }
+    .track-action .done-icon, .track-action.copied .copy-icon { display: none; }
+    .track-action.copied .done-icon { display: block; color: var(--accent); }
     .vsep { width: 1px; height: 16px; background: #3A3A3A; margin: 0 2px; flex: none; }
     .hide {
       width: 24px; height: 24px; border-radius: 50%; flex: none;
@@ -454,6 +454,15 @@ var YJamOverlay = (() => {
       renderMembers(view);
     }
 
+    // Правый клик по «Поделиться»: ссылку на страницу песни — в буфер, без перехода.
+    // По «Скопировать ссылку» — то же, что левый.
+    pill.addEventListener('contextmenu', (e) => {
+      const b = e.target.closest('.track-share, .track-copy');
+      if (!b || b.disabled) return;
+      e.preventDefault();
+      copyTrack(b, b.classList.contains('track-share') ? YJam.songPageUrl : YJam.trackLink);
+    });
+
     // Клики по пилюле — одним обработчиком: её содержимое перерисовывается.
     pill.addEventListener('click', (e) => {
       if (dragged) return;
@@ -534,10 +543,10 @@ var YJamOverlay = (() => {
 
     const COPIED_MS = 1200;
     let copiedTrackTimer = null;
-    async function copyTrack(button) {
+    async function copyTrack(button, link = YJam.trackLink) {
       const t = view && currentTrack(view);
       if (!t || !t.id) return;
-      await copyText(YJam.trackLink(t));
+      await copyText(link(t));
       button.classList.add('copied');
       clearTimeout(copiedTrackTimer);
       copiedTrackTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
@@ -654,9 +663,9 @@ var YJamOverlay = (() => {
         copy.disabled = !track.id;
         copy.innerHTML = svg(ICON_COPY, 'copy-icon') + svg(ICON_CHECK, 'done-icon');
         const share = el('button', 'track-action track-share');
-        share.title = 'Поделиться: ссылки на эту песню в других сервисах';
+        share.title = 'Поделиться: ссылки на эту песню в других сервисах. Правый клик — скопировать ссылку';
         share.setAttribute('aria-label', 'Поделиться');
-        share.innerHTML = svg(ICON_SHARE);
+        share.innerHTML = svg(ICON_SHARE, 'copy-icon') + svg(ICON_CHECK, 'done-icon');
         pill.append(el('span', 'vsep'), copy, share);
       }
       pill.append(el('span', 'vsep'), hide);

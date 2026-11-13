@@ -51,6 +51,17 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 .player-track { display: flex; align-items: center; gap: 10px; }
 .player-cover { width: 40px; height: 40px; flex: none; border-radius: 7px; overflow: hidden; background: var(--field); }
 .player-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Сердечко появляется по наведению на обложку, только пока играет трек. Лайкнутое — залито. */
+.player-cover { position: relative; }
+.like {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; background: rgba(0, 0, 0, .45); color: #fff; transition: opacity .12s;
+}
+.player-cover:hover .like, .like:focus-visible { opacity: 1; }
+.like svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; transition: transform .12s; }
+.like:hover svg { transform: scale(1.12); }
+.like[aria-pressed="true"] { color: var(--accent); }
+.like[aria-pressed="true"] svg { fill: currentColor; }
 .player-text { flex: 1; min-width: 0; }
 .player-title, .player-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-title { font-size: 13.5px; font-weight: 600; }
