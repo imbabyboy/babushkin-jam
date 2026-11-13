@@ -108,3 +108,30 @@ test('лимит запросов: 429, у другого адреса свой 
   assert.equal((await as('2.2.2.2')).status, 200);
   limited.close();
 });
+
+test('короткая ссылка: код стабильный, страница с карточкой и параметрами для app.js', async () => {
+  const long = '/api/short?singer=CREAM+SODA&songname=Никаких+больше+вечеринок&duration=326&ym=8968272/58835253';
+  const first = await (await fetch(base + long)).json();
+  const second = await (await fetch(base + long)).json();
+  assert.match(first.code, /^[0-9A-Za-z]{7}$/);
+  assert.equal(second.code, first.code);
+  assert.notEqual((await (await fetch(base + '/api/short?singer=CREAM+SODA&songname=Другая')).json()).code, first.code);
+
+  const html = await (await fetch(`${base}/${first.code}`)).text();
+  assert.match(html, /og:title" content="CREAM SODA — Никаких больше вечеринок"/);
+  assert.match(html, /noindex/);
+  const meta = html.match(/name="song-query" content="([^"]+)"/)[1].replace(/&amp;/g, '&');
+  const params = new URLSearchParams(meta);
+  assert.equal(params.get('singer'), 'CREAM SODA');
+  assert.equal(params.get('ym'), '8968272/58835253');
+  assert.equal(params.get('duration'), '326');
+});
+
+test('короткая ссылка: пустой запрос, неизвестный код и текст в мета-теге экранируется', async () => {
+  assert.equal((await fetch(base + '/api/short')).status, 400);
+  assert.equal((await fetch(base + '/ZZZZZZZ')).status, 404);
+  const evil = encodeURIComponent('"><script>alert(1)</script>');
+  const { code } = await (await fetch(`${base}/api/short?singer=${evil}&songname=x`)).json();
+  const html = await (await fetch(`${base}/${code}`)).text();
+  assert.doesNotMatch(html, /<script>alert/);
+});

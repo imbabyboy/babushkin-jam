@@ -5,6 +5,7 @@ import { createCache, dailyBudget } from './cache.js';
 import { readConfig } from './config.js';
 import { describe, parseQuery } from './query.js';
 import { createProviders, createSearch } from './search.js';
+import { SHORT_PATH, shorten } from './short.js';
 
 const here = (path) => new URL(path, import.meta.url);
 const RATE_WINDOW_MS = 60 * 1000;
@@ -38,7 +39,8 @@ export const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => (
 ));
 
 // Telegram не выполняет JS, поэтому карточка должна быть в самом HTML. Текст из параметров придумывает кто угодно.
-function renderPage(template, query, cover) {
+// shortSearch — параметры короткой ссылки: адрес страницы их не содержит, app.js берёт их из мета-тега.
+function renderPage(template, query, cover, shortSearch = '') {
   const name = query.kind ? describe(query) : '';
   const title = name ? `${name} · ${SITE_NAME}` : SITE_NAME;
   const description = name ? `Ссылки на «${name}» в музыкальных сервисах` : DEFAULT_DESCRIPTION;
@@ -51,6 +53,7 @@ function renderPage(template, query, cover) {
     ...(cover ? [`<meta property="og:image" content="${escapeHtml(cover)}">`] : []),
     // Любой может придумать ссылку с любым текстом: такие страницы поисковикам не нужны.
     ...(query.kind ? ['<meta name="robots" content="noindex">'] : []),
+    ...(shortSearch ? [`<meta name="song-query" content="${escapeHtml(shortSearch)}">`] : []),
   ];
   return template.replace('<!--HEAD-->', tags.join('\n  '));
 }
@@ -105,6 +108,8 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
     timeoutMs: config.providerTimeoutMs,
   });
   const limiter = rateLimiter(config.rateLimitPerMinute);
+  // Отдельный счётчик: страница при открытии спрашивает и поиск, и короткий код.
+  const shortLimiter = rateLimiter(config.rateLimitPerMinute);
   const template = readFileSync(here('./public/index.html'), 'utf8');
 
   const server = createServer(async (req, res) => {
@@ -121,11 +126,25 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
       }
       if (url.pathname === '/health') return sendJson(res, 200, { ok: true });
 
+      if (url.pathname === '/api/short') {
+        if (!shortLimiter.allow(clientIp(req))) return sendJson(res, 429, { error: 'Слишком много запросов, попробуйте через минуту' });
+        const query = parseQuery(url.searchParams);
+        if (!query.kind) return sendJson(res, 400, { error: 'Укажите название песни, альбома или исполнителя' });
+        return sendJson(res, 200, { code: shorten(cache, query) });
+      }
+
       if (url.pathname === '/api/search') {
         if (!limiter.allow(clientIp(req))) return sendJson(res, 429, { error: 'Слишком много запросов, попробуйте через минуту' });
         const query = parseQuery(url.searchParams);
         if (!query.kind) return sendJson(res, 400, { error: 'Укажите название песни, альбома или исполнителя' });
         return sendJson(res, 200, await search.run(query));
+      }
+
+      const short = url.pathname.match(SHORT_PATH);
+      const shortSearch = short && cache.short(short[1]);
+      if (shortSearch) {
+        const query = parseQuery(new URLSearchParams(shortSearch));
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(template, query, search.peekCover(query), shortSearch));
       }
 
       const file = STATIC_FILES[url.pathname];
@@ -141,6 +160,7 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
 
   server.on('close', () => {
     limiter.stop();
+    shortLimiter.stop();
     if (!givenCache) cache.close();
   });
   return server;
