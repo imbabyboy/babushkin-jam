@@ -385,8 +385,8 @@
   let controlPlayAt = 0;
   async function control(action) {
     // У каждого свои: трек не меняется, а следующий в комнате всё равно выбирает очередь ведущего.
-    // Громкость тем более личная.
-    if (action === 'shuffle' || action === 'repeat' || action === 'mute') return pageCall(action);
+    // Громкость и лайк тем более личные.
+    if (action === 'shuffle' || action === 'repeat' || action === 'mute' || action === 'like') return pageCall(action);
     noteLocalAction();
     if (action === 'toggle') {
       const s = await pageCall('state');

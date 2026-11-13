@@ -286,6 +286,9 @@ function renderNow(inRoom, st, settings) {
   const cover = t && t.cover;
   if (cover && $('now-cover').getAttribute('src') !== cover) $('now-cover').src = cover;
   $('now-cover').hidden = !cover;
+  // Лайкаем трек вкладки: если он разошёлся с треком комнаты, сердечко лайкнуло бы не то, что на экране.
+  const own = p && p.track;
+  renderLike(own && (!room || !room.track || room.track.id === own.id) ? p.liked : null);
 
   for (const b of document.querySelectorAll('.ctrl[data-action="prev"], .ctrl[data-action="next"]')) b.disabled = !t;
   $('toggle').disabled = !st;
@@ -300,6 +303,27 @@ function renderNow(inRoom, st, settings) {
   $('pip').setAttribute('aria-pressed', String(pip));
   $('toggle').title = locked ? 'Открыть Яндекс Музыку: первый раз включите плей там' : paused ? 'Играть' : 'Пауза';
 }
+
+// liked: true/false, null — лайкнуть нельзя (нет трека, не вошли в аккаунт).
+const LIKE_HOLD_MS = 1500; // пока сайт не подтвердил нажатие, показываем результат нажатия
+let likePressedUntil = 0;
+let likePressed = false;
+
+function renderLike(liked) {
+  const shown = typeof liked === 'boolean' && Date.now() < likePressedUntil ? likePressed : liked;
+  $('like').hidden = typeof shown !== 'boolean';
+  $('like').setAttribute('aria-pressed', String(!!shown));
+  $('like').title = shown ? 'Убрать из «Мне нравится»' : 'Мне нравится';
+}
+
+$('like').onclick = async () => {
+  likePressed = $('like').getAttribute('aria-pressed') !== 'true';
+  likePressedUntil = Date.now() + LIKE_HOLD_MS;
+  renderLike(likePressed);
+  const result = await askTab('yjam:control', { action: 'like' });
+  if (!result || !result.ok) likePressedUntil = 0;
+  setTimeout(refresh, 400);
+};
 
 $('now').onclick = async (e) => {
   const b = e.target.closest('.ctrl');

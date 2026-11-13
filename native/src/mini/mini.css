@@ -48,6 +48,18 @@ svg.solid { fill: currentColor; stroke: none; }
 /* Трека нет: первое нажатие на плей включит то, что выберет сайт. */
 .cover.random { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #121212; }
 .cover-random { width: 55%; height: 55%; }
+/* Сердечко появляется по наведению на обложку, только пока играет трек. Лайкнутое — залито. */
+.cover { position: relative; }
+.like {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; background: rgba(0, 0, 0, .45); color: #fff; transition: opacity .12s;
+}
+.cover:hover .like, .like:focus-visible { opacity: 1; }
+.like svg { width: 20px; height: 20px; transition: transform .12s; }
+.like:hover svg { transform: scale(1.12); }
+.like[aria-pressed="true"] { color: var(--accent); }
+.like[aria-pressed="true"] svg { fill: currentColor; }
+[data-view="normal"] .like svg { width: 26px; height: 26px; }
 .text { flex: 1; min-width: 0; }
 .title, .artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title { font-weight: 600; }
@@ -185,9 +197,9 @@ svg.solid { fill: currentColor; stroke: none; }
 .queue-item.current .queue-title { color: var(--accent); font-weight: 600; }
 /* Пока не навели, кнопки не занимают места: width, а не display, чтобы до них можно было дойти с клавиатуры. */
 .queue-action { width: 0; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; opacity: 0; border-radius: 7px; color: var(--muted); }
-.queue-item:hover .queue-action, .queue-action:focus-visible, .queue-copy.copied { width: 26px; opacity: 1; }
+.queue-item:hover .queue-action, .queue-action:focus-visible, .queue-action.copied { width: 26px; opacity: 1; }
 .queue-item:hover .queue-site, .queue-site:focus-visible { margin-right: 4px; }
 .queue-action:hover { background: #3A3A3A; color: var(--fg); }
 .queue-action svg { width: 14px; height: 14px; flex: none; }
-.queue-copy .done-icon, .queue-copy.copied .copy-icon { display: none; }
-.queue-copy.copied .done-icon { display: block; color: var(--accent); }
+.queue-action .done-icon, .queue-action.copied .copy-icon { display: none; }
+.queue-action.copied .done-icon { display: block; color: var(--accent); }
