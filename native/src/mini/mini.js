@@ -213,10 +213,11 @@
   }
 
   function render(data) {
-    const { page, status, restoring } = data;
+    const { page, status, restoring, opening } = data;
     const player = status && status.player && status.player.ok ? status.player : null;
-    // Пока идёт возврат, сайт показывает то, что вспомнил сам: это ещё не наш трек.
-    const loading = page === 'loading' || !!restoring;
+    // Пока идёт возврат или открывается ссылка, сайт показывает то, что было: это ещё не наш трек.
+    const loading = page === 'loading' || !!restoring || !!opening;
+    $('loading').textContent = opening ? 'Открытие…' : 'Загружаем Яндекс Музыку…';
     renderTrack(loading ? null : player, page, loading);
     renderVolume(loading ? null : player);
     const trackId = player && player.track && player.track.id;
