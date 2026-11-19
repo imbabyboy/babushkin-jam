@@ -47,14 +47,28 @@ var YJam = (() => {
   // Сервис ссылок на песню.
   const LINKS_URL = 'https://share.babushkin-jam.store/';
 
-  function songPageUrl({ artist, title, album, duration, id, albumId }) {
+  const SHORT_LINK_TIMEOUT_MS = 3000;
+
+  function songPageParams({ artist, title, album, duration, id, albumId }) {
     const params = new URLSearchParams();
     if (artist) params.set('singer', artist);
     if (title) params.set('songname', title);
     if (album) params.set('album', album);
     if (duration > 0) params.set('duration', String(Math.round(duration)));
     if (/^\d+$/.test(id)) params.set('ym', /^\d+$/.test(albumId) ? `${albumId}/${id}` : id);
-    return LINKS_URL + '?' + params;
+    return params;
+  }
+
+  const songPageUrl = (track) => LINKS_URL + '?' + songPageParams(track);
+
+  // Короткая ссылка для копирования: share.babushkin-jam.store/Ab3dE9x. Сервис не ответил — отдаём длинную.
+  async function shortSongPageUrl(track) {
+    try {
+      const res = await fetch(LINKS_URL + 'api/short?' + songPageParams(track), { signal: AbortSignal.timeout(SHORT_LINK_TIMEOUT_MS) });
+      const { code } = res.ok ? await res.json() : {};
+      if (/^[0-9A-Za-z]{7}$/.test(code)) return LINKS_URL + code;
+    } catch (e) {}
+    return songPageUrl(track);
   }
 
   const trackLink = ({ id, albumId }) =>
@@ -63,6 +77,14 @@ var YJam = (() => {
   function inviteLink(code) {
     return `https://music.yandex.ru/?jam=${encodeURIComponent(code)}`;
   }
+
+  // Ссылки на Яндекс Музыку — в приложение (настройка «Где открывать ссылки» в попапе расширения).
+  // Запущенное приложение слушает 127.0.0.1:APP_PORT, незапущенное открывается по своей схеме.
+  // Порт и схему знает и native/src/links.js — менять вместе.
+  const APP_SCHEME = 'babushkin-jam';
+  const APP_PORT = 47835;
+  const APP_ORIGINS = ['http://127.0.0.1/*'];
+  const appLink = (url) => `${APP_SCHEME}://open?url=${encodeURIComponent(url)}`;
 
   // Дозаполняет настройки: случайное имя, сервер по умолчанию.
   // Старые адреса по умолчанию один раз меняются на общий сервер. Адрес, вписанный вручную, не трогаем:
@@ -119,7 +141,7 @@ var YJam = (() => {
   const IS_LOCAL = /\(local\)/.test(chrome.runtime.getManifest().name);
 
   return {
-    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, trackLink, ensureSettings,
-    loadFonts, avatarColor, initial, IS_LOCAL,
+    SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, shortSongPageUrl, trackLink, ensureSettings,
+    APP_PORT, APP_ORIGINS, appLink, loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

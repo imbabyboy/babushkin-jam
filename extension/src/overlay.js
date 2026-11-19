@@ -273,6 +273,7 @@ var YJamOverlay = (() => {
             </button>
             <div data-el="invite-link" class="invite-link"></div>
           </div>
+          <button data-el="take" class="btn-secondary" hidden>Перенести джем сюда</button>
           <button data-el="leave" class="btn-outline">Выйти из комнаты</button>
         </div>
 
@@ -460,7 +461,7 @@ var YJamOverlay = (() => {
       const b = e.target.closest('.track-share, .track-copy');
       if (!b || b.disabled) return;
       e.preventDefault();
-      copyTrack(b, b.classList.contains('track-share') ? YJam.songPageUrl : YJam.trackLink);
+      copyTrack(b, b.classList.contains('track-share') ? YJam.shortSongPageUrl : YJam.trackLink);
     });
 
     // Клики по пилюле — одним обработчиком: её содержимое перерисовывается.
@@ -517,6 +518,8 @@ var YJamOverlay = (() => {
     }
     $('invite-join').onclick = () => actions.join(view.invite, nameValue());
     $('leave').onclick = () => actions.leave();
+    // Джем-вкладка — другая (в комнате участвует одна вкладка на браузер). Виджет на чужом сайте этого не умеет.
+    $('take').onclick = () => { if (actions.takeOver) actions.takeOver(); };
 
     let copiedTimer = null;
     $('copy').onclick = async () => {
@@ -546,7 +549,7 @@ var YJamOverlay = (() => {
     async function copyTrack(button, link = YJam.trackLink) {
       const t = view && currentTrack(view);
       if (!t || !t.id) return;
-      await copyText(link(t));
+      await copyText(await link(t));
       button.classList.add('copied');
       clearTimeout(copiedTrackTimer);
       copiedTrackTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);
@@ -622,7 +625,8 @@ var YJamOverlay = (() => {
       } else {
         main.append('Джем');
         if (!connected(v)) {
-          const text = v.conn === 'notab' ? 'нет вкладки' : v.conn === 'connecting' ? 'подключаюсь…' : 'нет связи';
+          const text = v.conn === 'notab' ? 'нет вкладки' : v.conn === 'elsewhere' ? 'в другой вкладке'
+            : v.conn === 'connecting' ? 'подключаюсь…' : 'нет связи';
           main.append(el('span', 'chip text', text));
         } else {
           const chip = el('span', 'chip');
@@ -738,6 +742,7 @@ var YJamOverlay = (() => {
       }
       if (v.conn === 'notab') return ['', 'Джем работает во вкладке Яндекс Музыки — откройте её'];
       if (v.conn === 'connecting') return ['', 'подключаюсь…'];
+      if (v.conn === 'elsewhere') return ['', 'джем идёт в другой вкладке'];
       return ['bad', 'нет связи, переподключаюсь…'];
     }
 
@@ -750,6 +755,7 @@ var YJamOverlay = (() => {
       $('room-dot').className = 'dot' + (kind ? ' ' + kind : '');
       $('role').textContent = text;
       $('people-title').textContent = `В комнате · ${st ? st.members.length : '—'}`;
+      $('take').hidden = v.conn !== 'elsewhere' || !!v.remote;
 
       // пока правим имя, список не перерисовываем — иначе поле пропадёт из-под курсора
       if (!st) renaming = false;

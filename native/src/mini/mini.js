@@ -310,7 +310,7 @@
     button.oncontextmenu = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      flashCopied(button, YJam.songPageUrl(track));
+      flashCopied(button, () => desktop.copySongPage(track));
     };
     return button;
   }
@@ -331,8 +331,9 @@
   }
 
   // Копирует и на секунду показывает галочку вместо значка.
+  // text — строка или функция, которая сама кладёт ссылку в буфер.
   async function flashCopied(button, text) {
-    await desktop.copy(text);
+    await (typeof text === 'function' ? text() : desktop.copy(text));
     button.classList.add('copied');
     clearTimeout(button.copiedTimer);
     button.copiedTimer = setTimeout(() => button.classList.remove('copied'), COPIED_MS);

@@ -11,10 +11,19 @@
   };
   const QUERY_PARAMS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym'];
   const COPIED_MS = 1200;
+  const SHORT_PATH = /\/[0-9A-Za-z]{7}$/;
   const $ = (id) => document.getElementById(id);
   let requestId = 0;
+  let shortening = Promise.resolve();
 
-  const params = () => new URLSearchParams(location.search);
+  // На короткой ссылке параметров в адресе нет: при переходах по истории они в history.state,
+  // при первом открытии — в мета-теге от сервера.
+  function params() {
+    if (location.search) return new URLSearchParams(location.search);
+    if (history.state && history.state.search) return new URLSearchParams(history.state.search);
+    const meta = document.querySelector('meta[name="song-query"]');
+    return new URLSearchParams(meta && SHORT_PATH.test(location.pathname) ? meta.content : '');
+  }
   const hasText = (p) => ['q', 'singer', 'songname', 'album'].some((name) => p.get(name));
 
   function queryLine(p) {
@@ -95,6 +104,16 @@
     $('result').hidden = false;
   }
 
+  // Длинный адрес с параметрами меняем на короткий, чтобы делиться было удобно. Не вышло — остаётся длинный.
+  async function shorten(search, id) {
+    try {
+      const res = await fetch('api/short?' + search);
+      if (!res.ok) return;
+      const { code } = await res.json();
+      if (id === requestId && SHORT_PATH.test('/' + code)) history.replaceState({ search: String(search) }, '', code);
+    } catch {}
+  }
+
   async function load() {
     const p = params();
     const id = ++requestId;
@@ -107,6 +126,7 @@
     showStatus('Ищем на сервисах…');
     const search = new URLSearchParams();
     for (const name of QUERY_PARAMS) if (p.get(name)) search.set(name, p.get(name));
+    shortening = location.search ? shorten(search, id) : Promise.resolve();
     try {
       const res = await fetch('api/search?' + search);
       const data = await res.json();
@@ -125,10 +145,16 @@
   $('form').onsubmit = (e) => {
     e.preventDefault();
     const text = $('q').value.trim();
-    history.pushState(null, '', location.pathname + (text ? '?' + new URLSearchParams({ q: text }) : ''));
+    // С короткой ссылки уходим на корень сервиса, иначе пустой поиск снова покажет её песню.
+    const base = location.pathname.replace(SHORT_PATH, '/');
+    history.pushState(null, '', base + (text ? '?' + new URLSearchParams({ q: text }) : ''));
     load();
   };
-  $('share').onclick = (e) => copy(location.href, e.currentTarget);
+  $('share').onclick = async (e) => {
+    const button = e.currentTarget;
+    await shortening;
+    copy(location.href, button);
+  };
   window.addEventListener('popstate', load);
   load();
 })();

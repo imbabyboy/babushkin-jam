@@ -8,12 +8,16 @@ export function createCache(path, now = Date.now) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS counter (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS short (code TEXT PRIMARY KEY, search TEXT NOT NULL);
   `);
   const read = db.prepare('SELECT value, expires FROM cache WHERE key = ?');
   const write = db.prepare('INSERT OR REPLACE INTO cache (key, value, expires) VALUES (?, ?, ?)');
   const purge = db.prepare('DELETE FROM cache WHERE expires <= ?');
   const readCounter = db.prepare('SELECT value FROM counter WHERE key = ?');
   const writeCounter = db.prepare('INSERT OR REPLACE INTO counter (key, value) VALUES (?, ?)');
+  // Короткие ссылки не протухают: их уже разослали в чаты.
+  const readShort = db.prepare('SELECT search FROM short WHERE code = ?');
+  const writeShort = db.prepare('INSERT OR IGNORE INTO short (code, search) VALUES (?, ?)');
 
   purge.run(now());
   const timer = setInterval(() => purge.run(now()), PURGE_INTERVAL_MS);
@@ -33,6 +37,13 @@ export function createCache(path, now = Date.now) {
     },
     setCounter(key, value) {
       writeCounter.run(key, value);
+    },
+    short(code) {
+      const row = readShort.get(code);
+      return row ? row.search : null;
+    },
+    setShort(code, search) {
+      writeShort.run(code, search);
     },
     close() {
       clearInterval(timer);
