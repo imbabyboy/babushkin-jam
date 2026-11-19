@@ -84,6 +84,7 @@ let failedHotkeys = [];
 let menuKey = '';
 let miniDrag = null;     // тащим плеер: отступ курсора от угла окна и таймер
 let pendingLink = null;  // ссылка пришла, пока Музыка грузится или возвращает прошлый трек
+let linkOpening = false; // ссылка включается: плеер пишет «Открытие…»
 let playbackStore = null; // трек, время и плейлист: меняются часто, поэтому не в настройках
 let restoreState = 'waiting'; // waiting, reload (страница перезагружается), running, done
 let restoreWaitFrom = 0;
@@ -233,23 +234,65 @@ async function control(action) {
 // Пока Музыка грузится, ссылка ждёт: возврат прошлого трека после запуска перебил бы её.
 const LINK_PLAY_MS = 90000; // включение трека может перелистывать альбом
 
+const hasPage = (link) => !!link && !(link.path === '/' && link.jam);
+
 function receiveLink(raw) {
   const link = links.parseLink(raw);
   if (!link || !mainWindow) return;
+  bringForward();
   if (link.jam) {
     store.set({ room: link.jam });
     if (prefs().mode !== 'tray') openSettings('main');
   }
-  if (link.path === '/' && link.jam) return;
+  if (!hasPage(link)) return;
+  // Ссылка пришла до возврата прошлого трека (запуск по ссылке) — возвращать нечего, играет она.
+  if (restoreState === 'waiting') restoreState = 'done';
   pendingLink = link;
+  pushStatus();
   openPendingLink();
 }
 
+// Ссылку передало расширение по 127.0.0.1 — система приложение не активирует, выводим сами то, что открыто
+// в текущем режиме. В трее — панель у значка, если значок есть.
+function bringForward() {
+  const { mode } = prefs();
+  if (mode === 'tray') {
+    if (tray && !(trayPanel && trayPanel.isVisible())) toggleTrayPanel();
+    return;
+  }
+  const win = mode === 'full' ? mainWindow : miniWindow;
+  win.show();
+  if (IS_MAC) app.focus({ steal: true });
+  win.focus();
+}
+
+// Сайт мог перейти на страницу трека полной перезагрузкой: ответ со старой страницы уже не придёт.
+// Тогда включаем ещё раз, на новой странице, — она уже нужная, второй перезагрузки не будет.
 async function openPendingLink() {
-  if (!pendingLink || currentPage() !== 'music' || isRestoring()) return;
-  const { path: linkPath } = pendingLink;
+  if (!pendingLink || linkOpening || currentPage() !== 'music' || isRestoring()) return;
+  const link = pendingLink;
   pendingLink = null;
-  await askMusic({ type: 'yjam:open', path: linkPath }, LINK_PLAY_MS);
+  linkOpening = true;
+  pushStatus();
+  const contents = musicContents();
+  const started = Date.now();
+  let onNavigate = null;
+  const navigated = new Promise((resolve) => { onNavigate = resolve; });
+  contents.once('did-navigate', onNavigate);
+  const result = await Promise.race([
+    askMusic({ type: 'yjam:open', path: link.path }, LINK_PLAY_MS),
+    navigated.then(() => 'reloaded'),
+  ]);
+  if (!contents.isDestroyed()) contents.removeListener('did-navigate', onNavigate);
+  const reloaded = result === 'reloaded';
+  // Как с возвратом трека: на сайт с аккаунтом можно посмотреть только у автора, поэтому итог записываем.
+  playbackStore.set({ lastLink: {
+    at: new Date(started).toISOString(), path: link.path, ms: Date.now() - started, reloaded, retry: !!link.retry,
+    result: reloaded ? null : result,
+  } });
+  if (reloaded && !link.retry) pendingLink = { ...link, retry: true };
+  linkOpening = false;
+  pushStatus();
   poll();
 }
 
@@ -298,7 +341,8 @@ function layoutMusic() {
   musicView.setBounds({ x: 0, y: top, width, height: height - top });
 }
 
-function createMainWindow() {
+// startPath — приложение запустили ссылкой: сразу её страница, без главной и второй загрузки.
+function createMainWindow(startPath = null) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -383,7 +427,7 @@ function createMainWindow() {
     setTimeout(() => { if (musicView) contents.loadURL(MUSIC_URL); }, RETRY_LOAD_MS);
   });
 
-  contents.loadURL(MUSIC_URL);
+  contents.loadURL(startPath ? new URL(startPath, MUSIC_URL).toString() : MUSIC_URL);
 }
 
 // ---------- плеер поверх всех окон ----------
@@ -638,7 +682,7 @@ async function poll() {
 }
 
 function pushStatus() {
-  const data = { ...lastStatus, restoring: isRestoring() };
+  const data = { ...lastStatus, restoring: isRestoring(), opening: !!pendingLink || linkOpening };
   for (const w of [mainWindow, miniWindow, trayPanel]) if (w) w.webContents.send('yjam:status', data);
 }
 
@@ -977,7 +1021,7 @@ function setupIpc() {
     const result = await askMusic(msg);
     if (msg.type === 'yjam:control') poll();
     // Попап предлагает открыть вкладку, пока плей не нажимали на самой странице. Здесь звук включается и так.
-    return msg.type === 'yjam:status' && result ? { ...result, canPlay: true, restoring: isRestoring() } : result;
+    return msg.type === 'yjam:status' && result ? { ...result, canPlay: true, restoring: isRestoring(), opening: !!pendingLink || linkOpening } : result;
   });
   handle('yjam:info', () => ({
     version: app.getVersion(),
@@ -1097,7 +1141,8 @@ if (!app.requestSingleInstanceLock()) {
     setupAssets();
     setupUpdater();
     setupIpc();
-    createMainWindow();
+    const startLink = launchLink && links.parseLink(launchLink);
+    createMainWindow(hasPage(startLink) ? startLink.path : null);
     createMiniWindow();
     applyTrayIcon();
     applyHotkeys();

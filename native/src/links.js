@@ -5,7 +5,7 @@
 const http = require('http');
 
 const SCHEME = 'babushkin-jam';
-const PORT = 47835;
+const PORT = Number(process.env.YJAM_LINK_PORT) || 47835; // другой порт — только для проверок рядом с установленным приложением
 const HOST = '127.0.0.1';
 const MUSIC_HOST_RE = /(^|\.)music\.yandex\.(ru|com|by|kz)$/;
 

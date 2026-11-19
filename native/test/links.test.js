@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+// Свой порт: на обычном слушает установленное приложение, и проверочные ссылки ушли бы в него.
+process.env.YJAM_LINK_PORT = '47898';
 const { PORT, parseLink, linkFromArgv, startLinkServer } = require('../src/links');
 
 const wrap = (url) => 'babushkin-jam://open?url=' + encodeURIComponent(url);
