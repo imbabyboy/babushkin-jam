@@ -11,6 +11,7 @@ const {
 const { pathToFileURL } = require('url');
 const { createStore } = require('./store');
 const { createUpdater } = require('./updater');
+const links = require('./links');
 
 const MUSIC_URL = 'https://music.yandex.ru/';
 const RELEASES_URL = 'https://github.com/imbabyboy/babushkin-jam/releases/latest';
@@ -82,6 +83,7 @@ let lastStatus = { page: 'loading', status: null };
 let failedHotkeys = [];
 let menuKey = '';
 let miniDrag = null;     // тащим плеер: отступ курсора от угла окна и таймер
+let pendingLink = null;  // ссылка пришла, пока Музыка грузится или возвращает прошлый трек
 let playbackStore = null; // трек, время и плейлист: меняются часто, поэтому не в настройках
 let restoreState = 'waiting'; // waiting, reload (страница перезагружается), running, done
 let restoreWaitFrom = 0;
@@ -223,6 +225,32 @@ async function control(action) {
   const result = await askMusic({ type: 'yjam:control', action });
   poll();
   return result;
+}
+
+// ---------- ссылки из других программ ----------
+// Ссылку открывают, чтобы слушать: трек, альбом или плейлист сразу играет, окна остаются как были.
+// Приглашение (?jam=КОД) — входим в комнату; джем показываем, если приложение не свёрнуто в трей.
+// Пока Музыка грузится, ссылка ждёт: возврат прошлого трека после запуска перебил бы её.
+const LINK_PLAY_MS = 90000; // включение трека может перелистывать альбом
+
+function receiveLink(raw) {
+  const link = links.parseLink(raw);
+  if (!link || !mainWindow) return;
+  if (link.jam) {
+    store.set({ room: link.jam });
+    if (prefs().mode !== 'tray') openSettings('main');
+  }
+  if (link.path === '/' && link.jam) return;
+  pendingLink = link;
+  openPendingLink();
+}
+
+async function openPendingLink() {
+  if (!pendingLink || currentPage() !== 'music' || isRestoring()) return;
+  const { path: linkPath } = pendingLink;
+  pendingLink = null;
+  await askMusic({ type: 'yjam:open', path: linkPath }, LINK_PLAY_MS);
+  poll();
 }
 
 // ---------- режимы окон ----------
@@ -602,6 +630,7 @@ async function poll() {
     if (status) {
       restorePlayback(status);
       rememberPlayback(status);
+      openPendingLink();
     }
   } finally {
     polling = false;
@@ -1038,7 +1067,19 @@ if (!app.requestSingleInstanceLock()) {
   // Каждая копия была бы отдельным участником комнаты — оставляем одну.
   app.quit();
 } else {
-  app.on('second-instance', revealApp);
+  // Windows: ссылка babushkin-jam:// приходит в аргументах второй копии.
+  app.on('second-instance', (_e, argv) => {
+    const link = links.linkFromArgv(argv);
+    if (link) receiveLink(link);
+    else revealApp();
+  });
+  // macOS: ссылка приходит событием, в том числе та, что запустила приложение, — ещё до готовности.
+  let launchLink = links.linkFromArgv(process.argv);
+  app.on('open-url', (e, url) => {
+    e.preventDefault();
+    if (app.isReady() && mainWindow) receiveLink(url);
+    else launchLink = url;
+  });
   // Окна не закрываются, а прячутся, поэтому приложение живёт до явного выхода.
   app.on('before-quit', () => {
     quitting = true;
@@ -1062,5 +1103,9 @@ if (!app.requestSingleInstanceLock()) {
     applyHotkeys();
     applyMode(prefs().mode);
     setInterval(poll, POLL_MS);
+    // Из исходников схема зарегистрировалась бы на сам electron — только в установленном приложении.
+    if (app.isPackaged) app.setAsDefaultProtocolClient(links.SCHEME);
+    links.startLinkServer(receiveLink);
+    if (launchLink) receiveLink(launchLink);
   });
 }

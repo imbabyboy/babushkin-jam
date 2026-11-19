@@ -960,6 +960,27 @@
     playTrack,
     restore: restorePlayback,
 
+    // Приложение открывает ссылку из другой программы — чтобы слушать: трек включаем сразу,
+    // альбом, плейлист или исполнителя — кнопкой «Воспроизведение» на их странице.
+    async open({ path }) {
+      if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return { ok: false, error: 'не путь' };
+      const pathname = path.split('?')[0];
+      const track = pathname.match(/^\/album\/(\d+)\/track\/(\d+)\/?$/) || pathname.match(/^\/track\/(\d+)\/?$/);
+      if (track) return playTrack(track.length === 3 ? { albumId: track[1], id: track[2] } : { id: track[1] });
+      if (location.pathname !== pathname) {
+        const via = await waitFor(() => spaNavigate(path), SPA_WAIT_MS);
+        if (!via) return { ok: false, error: 'страница не открылась' };
+        // кнопка прошлой страницы ещё на месте, пока сайт не отрисовал новую
+        if (!(await waitFor(() => location.pathname === pathname, SPA_WAIT_MS))) return { ok: false, error: 'страница не открылась' };
+        await sleep(500);
+      }
+      const btn = await waitFor(findPlayButton, SPA_WAIT_MS);
+      if (!btn) return { ok: false, error: 'нет кнопки воспроизведения на странице' };
+      btn.click();
+      const playing = await waitFor(() => { const s = commands.state(); return s.ok && !s.paused; }, 5000);
+      return { ok: !!playing, method: 'page-button', button: labelOf(btn) };
+    },
+
     queue: readQueue,
     queuePlay: playFromQueue,
 

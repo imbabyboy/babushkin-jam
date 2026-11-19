@@ -1,6 +1,7 @@
 // Логика джема: соединение с сервером, комната, защита от эха, подстройка плеера.
 // Плеером управляет page.js (мир страницы), общение через window.postMessage.
 // Настройки (сервер, имя, комната) лежат в chrome.storage.local, их меняют панель на странице и попап.
+// Код комнаты общий на браузер, а в комнате участвует одна вкладка — джем-вкладка (её помнит background.js).
 
 (() => {
   const DEFAULTS = YJam.DEFAULTS;
@@ -29,6 +30,7 @@
   let warning = '';
   let autoplayBlocked = false;
   let player = { hasTrack: false, paused: true }; // для кнопок плеера в виджете
+  let jamHere = false;            // эта вкладка — джем-вкладка: только она входит в комнату
 
   // ---------- мост к page.js ----------
   let seq = 0;
@@ -121,6 +123,7 @@
     disconnect();
     warning = '';
     if (!settings.room || !settings.serverUrl) { render(); return; }
+    if (!jamHere) { conn = 'elsewhere'; render(); return; }
     conn = 'connecting';
     render();
     let sock;
@@ -398,6 +401,21 @@
     return { ok: false };
   }
 
+  // ---------- джем-вкладка ----------
+  // force — вошли в комнату здесь или нажали «Перенести сюда»: прежняя джем-вкладка выйдет.
+  // В приложении вкладка одна, ответа нет (null) — значит, джем здесь. Как и при ошибке фонового скрипта:
+  // лучше лишний участник, чем вкладка, которая не может войти.
+  async function claim(force = false) {
+    let r = null;
+    try { r = await chrome.runtime.sendMessage({ type: 'yjam:claim', force }); } catch (e) {}
+    jamHere = !r || r.jam !== false;
+  }
+
+  async function takeOver() {
+    await claim(true);
+    connect();
+  }
+
   // ---------- панель на странице ----------
   // Приглашение: ссылка вида music.yandex.ru/?jam=КОД открывает панель с кнопкой «Войти».
   const invite = YJam.normalizeCode(new URLSearchParams(location.search).get('jam')) || null;
@@ -405,11 +423,14 @@
 
   const overlay = YJamOverlay.create({
     async create(name) {
+      await claim(true);
       await chrome.storage.local.set({ room: YJam.randomCode(), ...(name ? { name } : {}) });
     },
     async join(code, name) {
+      await claim(true);
       await chrome.storage.local.set({ room: code, ...(name ? { name } : {}) });
     },
+    takeOver,
     async leave() {
       await chrome.storage.local.set({ room: '' });
     },
@@ -505,6 +526,24 @@
       });
       return true;
     }
+    // Фоновый скрипт: джем перенесли в другую вкладку (jam: false) или он перешёл сюда из закрытой.
+    if (msg.type === 'yjam:jam-tab') {
+      jamHere = !!msg.jam;
+      connect();
+      reply({ ok: true });
+      return;
+    }
+    // Приложение: ссылка на Яндекс Музыку из другой программы, сразу играет. Только путь — домен остаётся тот же.
+    // Как выбор трека в плейлисте: смена уйдёт в комнату обычным путём, подстройка её не отменит.
+    if (msg.type === 'yjam:open') {
+      noteLocalAction();
+      ownTrackUntil = Date.now() + SWITCH_MS;
+      pageCall('open', { path: msg.path }, SWITCH_MS).then((r) => {
+        ownTrackUntil = r.ok ? Date.now() + OWN_TRACK_MS : 0;
+        reply(r);
+      });
+      return true;
+    }
     if (msg.type === 'yjam:resync') {
       switchAttempts = 0;
       switchBusyUntil = 0;
@@ -515,11 +554,15 @@
   });
 
   // ---------- настройки ----------
-  YJam.ensureSettings().then((s) => {
+  (async () => {
+    // Ссылку забрало приложение (extension/src/links.js) — вкладка сейчас закроется, в комнату не входим.
+    if (typeof yjamLinkCheck !== 'undefined' && await yjamLinkCheck) return;
+    const s = await YJam.ensureSettings();
     settings = { ...DEFAULTS, ...s };
+    if (settings.room) await claim();
     settingsLoaded = true;
     connect();
-  });
+  })();
   pageCall('state').then((s) => {
     if (s.ok && s.played) played = true;
     if (s.ok && s.track) { player = { hasTrack: true, paused: s.paused }; render(); }
@@ -527,6 +570,7 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
+    if (!settingsLoaded) return; // настройки ещё читаются — возьмём свежие
     let reconnect = false;
     for (const k of Object.keys(DEFAULTS)) {
       if (!changes[k]) continue;
@@ -535,6 +579,9 @@
       if (k === 'name' && settings.room) { if (settings.name) send({ t: 'rename', name: settings.name }); }
       else reconnect = true;
     }
-    if (reconnect) connect(); else render();
+    if (!reconnect) { render(); return; }
+    // Новая комната: входит джем-вкладка. Создали в попапе — он заранее отметил свою вкладку.
+    if (changes.room && settings.room) claim().then(connect);
+    else connect();
   });
 })();

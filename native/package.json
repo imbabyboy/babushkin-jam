@@ -14,7 +14,7 @@
     "pack:mac-arm64": "npm run bundle && electron-builder --config electron-builder.config.js --mac dir --arm64",
     "dist:mac": "npm run bundle && electron-builder --config electron-builder.config.js --mac",
     "dist:win": "npm run bundle && electron-builder --config electron-builder.config.js --win",
-    "test": "node --test test/updater.test.js"
+    "test": "node --test test/updater.test.js test/links.test.js"
   },
   "build": {
     "appId": "io.github.imbabyboy.babushkin-jam",
@@ -27,6 +27,14 @@
       "generated/**",
       "assets/**",
       "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "babushkin-jam",
+        "schemes": [
+          "babushkin-jam"
+        ]
+      }
     ],
     "mac": {
       "category": "public.app-category.music",

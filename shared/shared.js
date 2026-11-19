@@ -78,6 +78,14 @@ var YJam = (() => {
     return `https://music.yandex.ru/?jam=${encodeURIComponent(code)}`;
   }
 
+  // Ссылки на Яндекс Музыку — в приложение (настройка «Где открывать ссылки» в попапе расширения).
+  // Запущенное приложение слушает 127.0.0.1:APP_PORT, незапущенное открывается по своей схеме.
+  // Порт и схему знает и native/src/links.js — менять вместе.
+  const APP_SCHEME = 'babushkin-jam';
+  const APP_PORT = 47835;
+  const APP_ORIGINS = ['http://127.0.0.1/*'];
+  const appLink = (url) => `${APP_SCHEME}://open?url=${encodeURIComponent(url)}`;
+
   // Дозаполняет настройки: случайное имя, сервер по умолчанию.
   // Старые адреса по умолчанию один раз меняются на общий сервер. Адрес, вписанный вручную, не трогаем:
   // localhost, вписанный уже после версии 2, остаётся.
@@ -134,6 +142,6 @@ var YJam = (() => {
 
   return {
     SERVER_URL, DEFAULTS, YM_URLS, ALL_SITES, randomName, randomCode, normalizeCode, inviteLink, songPageUrl, shortSongPageUrl, trackLink, ensureSettings,
-    loadFonts, avatarColor, initial, IS_LOCAL,
+    APP_PORT, APP_ORIGINS, appLink, loadFonts, avatarColor, initial, IS_LOCAL,
   };
 })();

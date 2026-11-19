@@ -20,7 +20,29 @@ YJam.loadFonts();
 $('badge').hidden = !YJam.IS_LOCAL;
 $('server').placeholder = DEFAULTS.serverUrl;
 
+// Джем-вкладка — та, что в комнате (её помнит background.js). Попап показывает и меняет комнату через неё.
+// В приложении вкладка одна и storage.session нет.
+const YM_RE = /^https:\/\/([^/]*\.)?music\.yandex\.(ru|com|by|kz)\//;
+async function jamTab() {
+  if (!chrome.storage.session) return null;
+  const { jamTabId } = await chrome.storage.session.get({ jamTabId: null });
+  if (jamTabId == null) return null;
+  try {
+    const tab = await chrome.tabs.get(jamTabId);
+    return YM_RE.test(tab.url || '') ? tab : null;
+  } catch { return null; }
+}
+
+// Входим в комнату из попапа: в неё пойдёт джем-вкладка, а если её нет — вкладка, которую попап показывает.
+async function markJamTab() {
+  if (!chrome.storage.session || await jamTab()) return;
+  const tab = await findTab();
+  if (tab) await chrome.storage.session.set({ jamTabId: tab.id });
+}
+
 async function findTab() {
+  const jam = await jamTab();
+  if (jam) return jam;
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true, url: YM_URLS });
   if (active) return active;
   const [any] = await chrome.tabs.query({ url: YM_URLS });
@@ -248,6 +270,7 @@ function roleLine(st) {
     return ['ok', 'подключено · ведущий ' + (leader ? leader.name : '—')];
   }
   if (st.conn === 'connecting') return ['', 'подключаюсь…'];
+  if (st.conn === 'elsewhere') return ['', 'джем в другой вкладке'];
   return ['bad', 'нет связи, переподключаюсь…'];
 }
 
@@ -417,6 +440,20 @@ async function widgetOnYmOnly() {
 $('w-all').onclick = widgetEverywhere;
 $('w-ym').onclick = widgetOnYmOnly;
 
+// Ссылки на Яндекс Музыку — в приложение. Доступ к 127.0.0.1 нужен, чтобы передать ссылку запущенному
+// приложению без вопроса браузера. Отказали — приложение всё равно откроется по ссылке babushkin-jam://.
+async function linksInApp() {
+  try { await chrome.permissions.request({ origins: YJam.APP_ORIGINS }); } catch (e) {}
+  await chrome.storage.local.set({ openLinksInApp: true });
+  refresh();
+}
+async function linksInBrowser() {
+  await chrome.storage.local.set({ openLinksInApp: false });
+  refresh();
+}
+$('l-app').onclick = linksInApp;
+$('l-browser').onclick = linksInBrowser;
+
 async function renderSettings(settings) {
   renderSettingsName(settings.name);
   const all = settings.widgetEverywhere && await chrome.permissions.contains({ origins: YJam.ALL_SITES });
@@ -425,6 +462,11 @@ async function renderSettings(settings) {
   $('w-hint').textContent = all
     ? 'Виджет есть на любом сайте. Музыка играет во вкладке Яндекс Музыки — не закрывайте её.'
     : 'Для «На всех сайтах» Chrome спросит доступ ко всем сайтам — только чтобы показать там виджет.';
+  $('l-browser').setAttribute('aria-checked', String(!settings.openLinksInApp));
+  $('l-app').setAttribute('aria-checked', String(!!settings.openLinksInApp));
+  $('l-hint').textContent = settings.openLinksInApp
+    ? 'Ссылки откроются в приложении babushkin-jam, вкладка закроется. Если приложение не запущено, браузер спросит, можно ли его открыть.'
+    : 'Для «В приложении» нужно установленное приложение babushkin-jam. Chrome спросит доступ к 127.0.0.1 — так расширение передаёт ссылку приложению.';
 }
 
 // Доступ к Яндекс Музыке мог пропасть: старая версия снимала разрешение на все сайты,
@@ -446,7 +488,7 @@ for (const id of ['warning', 'no-tab-lobby']) {
 }
 
 async function refresh() {
-  const settings = await chrome.storage.local.get({ ...DEFAULTS, widgetHidden: false, widgetEverywhere: false });
+  const settings = await chrome.storage.local.get({ ...DEFAULTS, widgetHidden: false, widgetEverywhere: false, openLinksInApp: false });
   const inRoom = !!settings.room;
   const inSettings = view === 'settings';
   $('setup').hidden = inRoom || inSettings;
@@ -487,6 +529,7 @@ async function refresh() {
 
 // ---------- действия ----------
 $('create').onclick = async () => {
+  await markJamTab();
   await chrome.storage.local.set({ ...saveCommon(), room: YJam.randomCode() });
   refresh();
 };
@@ -494,6 +537,7 @@ $('create').onclick = async () => {
 $('join').onclick = async () => {
   const code = YJam.normalizeCode($('code').value);
   if (!code) return $('code').focus();
+  await markJamTab();
   await chrome.storage.local.set({ ...saveCommon(), room: code });
   refresh();
 };
