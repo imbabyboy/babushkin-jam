@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('desktop', {
   copy: (text) => ipcRenderer.invoke('yjam:copy', text),
   openSongPage: (track) => ipcRenderer.invoke('yjam:open-song-page', track),
   copySongPage: (track) => ipcRenderer.invoke('yjam:copy-song-page', track),
+  extensionState: () => ipcRenderer.invoke('yjam:extension-state'),
+  openExtensionStore: () => ipcRenderer.invoke('yjam:open-extension-store'),
   updateState: () => ipcRenderer.invoke('yjam:update-state'),
   onUpdateState: (fn) => ipcRenderer.on('yjam:update-state', (_e, state) => fn(state)),
   installUpdate: () => ipcRenderer.invoke('yjam:update-install'),

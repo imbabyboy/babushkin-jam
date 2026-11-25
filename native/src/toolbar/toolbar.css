@@ -13,6 +13,9 @@ body {
   user-select: none; -webkit-app-region: drag;
 }
 body.mac { padding-left: 84px; }
+/* Пустое место панели — зона перетаскивания окна, клики по ней система забирает себе. Пока открыты
+   настройки, она обычная: клик по ней доходит до приложения и закрывает настройки (main.js, before-mouse-event). */
+body.settings-open { -webkit-app-region: no-drag; }
 body.win { padding-right: 150px; }
 
 .brand { font-weight: 700; white-space: nowrap; }

@@ -440,19 +440,9 @@ async function widgetOnYmOnly() {
 $('w-all').onclick = widgetEverywhere;
 $('w-ym').onclick = widgetOnYmOnly;
 
-// Ссылки на Яндекс Музыку — в приложение. Доступ к 127.0.0.1 нужен, чтобы передать ссылку запущенному
-// приложению без вопроса браузера. Отказали — приложение всё равно откроется по ссылке babushkin-jam://.
-async function linksInApp() {
-  try { await chrome.permissions.request({ origins: YJam.APP_ORIGINS }); } catch (e) {}
-  await chrome.storage.local.set({ openLinksInApp: true });
-  refresh();
-}
-async function linksInBrowser() {
-  await chrome.storage.local.set({ openLinksInApp: false });
-  refresh();
-}
-$('l-app').onclick = linksInApp;
-$('l-browser').onclick = linksInBrowser;
+// Где открывать ссылки на Яндекс Музыку, решает настройка приложения babushkin-jam. Фон спрашивает её
+// у запущенного приложения и помнит в openLinksInApp, попап только показывает.
+chrome.runtime.sendMessage({ type: 'yjam:app-prefs' }).then((r) => { if (r) refresh(); }, () => {});
 
 async function renderSettings(settings) {
   renderSettingsName(settings.name);
@@ -462,11 +452,9 @@ async function renderSettings(settings) {
   $('w-hint').textContent = all
     ? 'Виджет есть на любом сайте. Музыка играет во вкладке Яндекс Музыки — не закрывайте её.'
     : 'Для «На всех сайтах» Chrome спросит доступ ко всем сайтам — только чтобы показать там виджет.';
-  $('l-browser').setAttribute('aria-checked', String(!settings.openLinksInApp));
-  $('l-app').setAttribute('aria-checked', String(!!settings.openLinksInApp));
   $('l-hint').textContent = settings.openLinksInApp
-    ? 'Ссылки откроются в приложении babushkin-jam, вкладка закроется. Если приложение не запущено, браузер спросит, можно ли его открыть.'
-    : 'Для «В приложении» нужно установленное приложение babushkin-jam. Chrome спросит доступ к 127.0.0.1 — так расширение передаёт ссылку приложению.';
+    ? 'Открываются в приложении babushkin-jam, вкладка закрывается. Выключить можно в настройках приложения.'
+    : 'Открываются в браузере. Чтобы открывать их в приложении babushkin-jam, включите это в его настройках.';
 }
 
 // Доступ к Яндекс Музыке мог пропасть: старая версия снимала разрешение на все сайты,

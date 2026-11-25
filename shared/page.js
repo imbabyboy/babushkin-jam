@@ -434,6 +434,30 @@
 
   const onTrackPage = (id) => new RegExp(`/track/${id}/?$`).test(location.pathname);
 
+  // Трек альбома включаем прямо в плеере сайта, как это делают его собственные кнопки, — без перехода
+  // на страницу трека. С аккаунтом сайт сейчас — сборка music-spa, и любой переход её роутера кончается
+  // полной перезагрузкой страницы (в браузере и в приложении): сервер отдаёт данные для перехода
+  // (/…/track/ID.txt?_rsc=) от другой сборки, номер сборки не совпадает. После перезагрузки сайт сначала
+  // включает свой прошлый трек, а приложение и вкладка заново входят в комнату.
+  // Гипотеза по коду сайта на 25 ноября (music 4.1745 и music-spa 1.11): playContext({ contextData,
+  // queueParams: { entityId } }) сам находит трек в альбоме по id; тот же альбом уже в очереди — просто
+  // переходит на трек. Не вышло — прежний переход на страницу трека.
+  const DIRECT_WAIT_MS = 5000;
+  const DIRECT_FROM = 'web-album-track-track-main';
+
+  async function playDirect(id, albumId, cancelled) {
+    const player = findSitePlayer();
+    if (!albumId || !player || typeof player.playContext !== 'function') return false;
+    try {
+      Promise.resolve(player.playContext({
+        contextData: { type: 'album', meta: { id: Number(albumId) }, from: DIRECT_FROM },
+        queueParams: { entityId: id },
+        loadContextMeta: true,
+      })).catch(() => {});
+    } catch (e) { return false; }
+    return !!(await waitFor(() => cancelled() || isPlaying(id), DIRECT_WAIT_MS)) && !cancelled();
+  }
+
   // Каждый новый вызов отменяет предыдущий: иначе две попытки (из комнаты и из консоли)
   // жмут кнопки одновременно и мешают друг другу.
   let playGen = 0;
@@ -447,6 +471,8 @@
     const CANCELLED = { ok: false, cancelled: true, error: 'отменено новой командой' };
 
     if (isPlaying(id)) return { ok: true, via: 'same-page', method: 'already' };
+    if (await playDirect(id, albumId, cancelled)) return { ok: true, via: 'player', method: 'context' };
+    if (cancelled()) return CANCELLED;
 
     const url = albumId ? `/album/${albumId}/track/${id}` : `/track/${id}`;
     let via = 'same-page';

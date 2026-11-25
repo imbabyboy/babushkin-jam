@@ -1,4 +1,4 @@
-// Ссылки на Яндекс Музыку — в приложение babushkin-jam (попап → настройки → «Где открывать ссылки»).
+// Ссылки на Яндекс Музыку — в приложение babushkin-jam (включается в настройках приложения, background.js спрашивает его).
 // Только в расширении: грузится раньше content.js, тот ждёт ответа и при переходе в приложение не входит в комнату.
 // Открытие ссылкой отличаем по типу перехода: перезагрузка, «назад» и переходы внутри сайта остаются во вкладке.
 // Вход в аккаунт возвращает на Музыку с других доменов Яндекса — такие переходы тоже не трогаем.
@@ -22,10 +22,8 @@ var yjamLinkCheck = (async () => {
   try { from = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
   if (YANDEX_RE.test(from)) return false;
 
-  const { openLinksInApp } = await chrome.storage.local.get({ openLinksInApp: false });
-  if (!openLinksInApp) return false;
-
-  // Пока спрашиваем приложение, страницу не показываем: вкладка, скорее всего, сейчас закроется.
+  // Пока спрашиваем приложение, страницу не показываем: вкладка может сейчас закрыться.
+  // Включено ли это, знает приложение; не запущено — отвечает мгновенно отказом соединения.
   const html = document.documentElement;
   html.style.setProperty('visibility', 'hidden', 'important');
   let r = null;

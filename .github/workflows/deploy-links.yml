@@ -1,0 +1,63 @@
+# Выкатка сервиса ссылок (share.<домен>) при мерже в main, если менялся он сам или его деплой.
+# Сервер комнат так не выкатывается: deploy.sh сбрасывает комнаты, его запускают руками.
+# Секреты репозитория (Settings → Secrets and variables → Actions → Secrets; не Variables — репозиторий публичный,
+# адрес VPS не светить): HOST — IP сервера, USERNAME — пользователь SSH, SSH_KEY — закрытый ключ с доступом к нему.
+# Остальное из deploy/.env не секретно и задано ниже; JAM_CADDY_SITES содержит IP, поэтому собирается из HOST.
+name: Deploy links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/links/**'
+      - 'shared/fonts/**'
+      - 'deploy/deploy-links.sh'
+      - 'deploy/common.sh'
+      - 'deploy/Dockerfile.links'
+      - 'deploy/Caddyfile*'
+      - '.github/workflows/deploy-links.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-links
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Тесты сервиса ссылок
+        working-directory: services/links
+        run: npm test # зависимостей нет, как в ci.yml
+
+      - name: Доступ к VPS
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          cat > deploy/.env <<EOF
+          JAM_HOST=$USERNAME@$HOST
+          JAM_DOMAIN=babushkin-jam.store
+          JAM_CADDY_SITES="$(echo "$HOST" | tr . -).sslip.io"
+          JAM_SUBDOMAINS=1
+          JAM_HTTPS_PORT=9443
+          JAM_HTTP_PUBLISH=127.0.0.1:8081
+          EOF
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Выкатка
+        run: sh deploy/deploy-links.sh
+
+      - name: Страница отвечает
+        run: |
+          . deploy/.env
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "https://share.$JAM_DOMAIN/" -o /dev/null

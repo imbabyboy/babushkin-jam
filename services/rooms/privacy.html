@@ -44,7 +44,7 @@
   <h2>Хранение</h2>
   <p>Сервер хранит состояние комнаты только в оперативной памяти, без базы данных и журналов. Пустая комната удаляется через 5 минут после выхода последнего участника. Имя, код комнаты и адрес сервера хранятся локально в вашем браузере (<code>chrome.storage</code>).</p>
   <p>Данные комнаты не продаются, не передаются третьим лицам и не используются для рекламы или аналитики.</p>
-  <p>Если в настройках выбрать «Где открывать ссылки на Яндекс Музыку → В приложении», расширение передаёт адрес открытой ссылки на music.yandex.* приложению babushkin-jam на этом же компьютере (127.0.0.1). В сеть он не уходит.</p>
+  <p>Расширение спрашивает у приложения babushkin-jam на этом же компьютере (127.0.0.1), включено ли в нём «Открывать ссылки на Яндекс Музыку в приложении», и если да, передаёт ему адрес открытой ссылки на music.yandex.*. Приложению при этом известна только версия расширения. В сеть ничего не уходит.</p>
 
   <h2>Сервис ссылок на песню</h2>
   <p>В приложении кнопка «Уйти на сайт» открывает в браузере страницу сервиса ссылок. В её адресе есть исполнитель, название, альбом, длительность и номер трека. Расширение и приложение сами туда ничего не отправляют.</p>
@@ -84,7 +84,7 @@
   <h2>Retention</h2>
   <p>The server keeps room state in memory only, with no database or logs. An empty room is deleted 5 minutes after the last member leaves. Your name, room code and server address are stored locally in your browser (<code>chrome.storage</code>).</p>
   <p>Room data is not sold, not shared with third parties and not used for advertising or analytics.</p>
-  <p>If you set “Where to open Yandex Music links → In the app”, the extension passes the address of an opened music.yandex.* link to the babushkin-jam app on the same computer (127.0.0.1). It is not sent over the network.</p>
+  <p>The extension asks the babushkin-jam app on the same computer (127.0.0.1) whether “Open Yandex Music links in the app” is on, and if so, passes it the address of an opened music.yandex.* link. The app only learns the extension version. Nothing is sent over the network.</p>
 
   <h2>Song links service</h2>
   <p>In the app, the “Уйти на сайт” (go to site) button opens the song links page in your browser. Its address contains the artist, title, album, duration and track number. The extension and the app send nothing there themselves.</p>

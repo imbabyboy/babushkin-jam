@@ -41,6 +41,8 @@
 
   desktop.onSettingsState(({ placement, page }) => {
     document.documentElement.dataset.placement = placement;
+    // Расширение могли поставить, пока настройки были закрыты.
+    if (window.yjamRenderApp) window.yjamRenderApp();
     if (document.documentElement.dataset.page !== page) showPage(page);
   });
 
@@ -115,6 +117,24 @@
   };
   const hotkeys = checkbox('Горячие клавиши', (on) => chrome.storage.local.set({ hotkeys: on }));
 
+  // Ссылки из Telegram, почты и с сайтов в приложение передаёт расширение для Chrome: настройка здесь,
+  // а расширение спрашивает её у приложения. Расширения нет — вместо переключателя ссылка на магазин.
+  const openLinks = checkbox('Открывать ссылки на Яндекс Музыку в приложении', (on) => chrome.storage.local.set({ openLinks: on }));
+  const linksHint = el('p', 'disclaimer');
+  const storeLink = el('button', 'btn-outline store-link');
+  storeLink.append(svg(ICON_OPEN), el('span', '', 'Расширение в Chrome Web Store'));
+  storeLink.onclick = () => desktop.openExtensionStore();
+
+  async function renderLinks(on) {
+    const { installed } = await desktop.extensionState();
+    openLinks.hidden = !installed;
+    storeLink.hidden = installed;
+    openLinks.show(on);
+    // С расширением переключатель понятен и без подсказки.
+    linksHint.hidden = installed;
+    linksHint.textContent = 'Ссылки в приложение передаёт расширение babushkin-jam для Chrome. Установите его, и здесь появится переключатель.';
+  }
+
   const keyList = el('dl', 'keys');
   for (const h of info.hotkeys) keyList.append(el('dt', '', h.label), el('dd', '', h.keys));
 
@@ -135,6 +155,9 @@
     resetPlayback,
     hotkeys,
     keyList,
+    openLinks,
+    storeLink,
+    linksHint,
   );
   if (inTray) {
     $('tray-options').append(options);
@@ -155,8 +178,11 @@
     remember.show(p.rememberPlayback);
     hotkeys.show(p.hotkeys);
     keyList.hidden = !p.hotkeys;
+    renderLinks(p.openLinks);
   }
   chrome.storage.onChanged.addListener(render);
+  window.yjamRenderApp = render;
+  window.addEventListener('focus', render);
   render();
 
   // Высота — по содержимому: в попапе у разных разделов она разная. Меню под гаечным ключом лежит

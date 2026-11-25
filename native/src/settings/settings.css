@@ -1,6 +1,6 @@
 /* Дополнение к стилям попапа. Виджета в приложении нет, поэтому нет и кнопок для него.
-   Выбор, где открывать ссылки, — настройка расширения: в приложение их отдаёт браузер. */
-#widget, #pip, .field:has(#w-ym), .field:has(#l-app) { display: none; }
+   Ссылки настраиваются здесь же, переключателем приложения, а строка попапа только для расширения. */
+#widget, #pip, .field:has(#w-ym), #links { display: none; }
 
 /* Настройки живут внутри окна: ширину задаёт оно, а если не хватает высоты, они прокручиваются. */
 html { background: var(--bg); overflow-y: auto; }
@@ -43,3 +43,7 @@ html[data-page="main"] #tools { display: none; }
 .keys[hidden] { display: none; }
 .keys dt { color: var(--muted); }
 .keys dd { margin: 0; font-family: var(--mono); color: var(--soft); }
+
+/* Расширения нет: кнопка со значком ссылки ведёт в Chrome Web Store. */
+.store-link { display: flex; align-items: center; justify-content: center; gap: 7px; }
+.store-link svg { width: 15px; height: 15px; stroke-width: 2; }
