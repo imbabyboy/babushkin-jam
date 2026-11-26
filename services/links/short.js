@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 
 const CODE_LENGTH = 7;
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const FIELDS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym'];
+const FIELDS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym', 'link'];
 const MAX_ATTEMPTS = 5;
 
 // 7 символов, чтобы не пересечься с /health, /app.js и прочими адресами сервиса.

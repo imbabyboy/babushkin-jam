@@ -1,5 +1,6 @@
 // Опрашивает сервисы параллельно. Сбой одного не влияет на остальные.
 import { cacheKey, searchText } from './query.js';
+import { sourceLink } from './resolve.js';
 import { pickBest } from './match.js';
 import { apple } from './providers/apple.js';
 import { deezer } from './providers/deezer.js';
@@ -56,6 +57,11 @@ function toResult(provider, query, candidates) {
 }
 
 async function askProvider(provider, query, { cache, doFetch, timeoutMs }) {
+  // Песню нашли по ссылке с этого сервиса: искать её там заново незачем, а без ключа и не получится.
+  const source = query.link && sourceLink(query.link);
+  if (source && source.service === provider.id && source.kind === query.kind) {
+    return { service: provider.id, status: 'found', url: source.url, fromCache: true };
+  }
   const key = `${provider.id}:${cacheKey(query)}`;
   if (provider.cached) {
     const hit = cache.get(key);
@@ -80,7 +86,7 @@ function buildResponse(query, results) {
   const byService = new Map(results.map((r) => [r.service, r]));
   const metas = META_ORDER.map((id) => byService.get(id)).filter((r) => r && r.meta).map((r) => r.meta);
   return {
-    query: Object.fromEntries(['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym']
+    query: Object.fromEntries(['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym', 'link']
       .filter((k) => query[k]).map((k) => [k, query[k]])),
     kind: query.kind,
     title: (metas[0] && metas[0].title) || query.songname || query.album || query.q || query.singer,

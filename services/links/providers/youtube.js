@@ -8,8 +8,8 @@ const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;
 const NOISE = /\s*[([|]?\s*(official\s+(music\s+)?(video|audio|visualizer)|music video|lyrics?(\s+video)?|официальн\S*\s+\S+|премьера\s+\S+|клип|audio|hd|hq|4k)\s*[)\]|]?/gi;
 
 const decode = (value) => String(value || '').replace(/&(amp|lt|gt|quot|#39);/g, (m) => ENTITIES[m]);
-const cleanTitle = (value) => decode(value).replace(NOISE, ' ').replace(/\s+/g, ' ').trim();
-const channelName = (value) => decode(value).replace(/\s+-\s+topic$/i, '').replace(/VEVO$/, '').trim();
+export const cleanTitle = (value) => decode(value).replace(NOISE, ' ').replace(/\s+/g, ' ').trim();
+export const channelName = (value) => decode(value).replace(/\s+-\s+topic$/i, '').replace(/VEVO$/, '').trim();
 
 function term(query) {
   if (query.q) return query.q;

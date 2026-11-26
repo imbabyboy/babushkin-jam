@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { createCache, dailyBudget } from './cache.js';
 import { readConfig } from './config.js';
 import { describe, parseQuery } from './query.js';
+import { MAX_LINK_LENGTH, createResolver } from './resolve.js';
 import { createProviders, createSearch } from './search.js';
 import { SHORT_PATH, shorten } from './short.js';
 
@@ -11,6 +12,7 @@ const here = (path) => new URL(path, import.meta.url);
 const RATE_WINDOW_MS = 60 * 1000;
 const SITE_NAME = 'Ссылки на песню';
 const DEFAULT_DESCRIPTION = 'Находит песню на разных музыкальных сервисах';
+const UNKNOWN_LINK = 'Такую ссылку не понимаем. Подойдёт ссылка на песню, альбом или исполнителя в Яндекс Музыке, Spotify, Apple Music, Deezer, YouTube или SoundCloud.';
 
 const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
@@ -109,7 +111,10 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
     doFetch,
     timeoutMs: config.providerTimeoutMs,
   });
+  const resolver = createResolver({ cache, doFetch, timeoutMs: config.providerTimeoutMs });
   const limiter = rateLimiter(config.rateLimitPerMinute);
+  // Ссылку разбираем до поиска: у неё свой счётчик, чтобы поиск после неё не упёрся в предел.
+  const resolveLimiter = rateLimiter(config.rateLimitPerMinute);
   // Отдельный счётчик: страница при открытии спрашивает и поиск, и короткий код.
   const shortLimiter = rateLimiter(config.rateLimitPerMinute);
   const template = readFileSync(here('./public/index.html'), 'utf8');
@@ -133,6 +138,18 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
         const query = parseQuery(url.searchParams);
         if (!query.kind) return sendJson(res, 400, { error: 'Укажите название песни, альбома или исполнителя' }, OPEN_CORS);
         return sendJson(res, 200, { code: shorten(cache, query) }, OPEN_CORS);
+      }
+
+      if (url.pathname === '/api/resolve') {
+        if (!resolveLimiter.allow(clientIp(req))) return sendJson(res, 429, { error: 'Слишком много запросов, попробуйте через минуту' });
+        const link = (url.searchParams.get('url') || '').slice(0, MAX_LINK_LENGTH);
+        try {
+          return sendJson(res, 200, await resolver.run(link));
+        } catch (error) {
+          if (error.reason === 'unknown_link') return sendJson(res, 400, { error: UNKNOWN_LINK });
+          console.error('Ссылка не разобрана:', error.reason || error.name);
+          return sendJson(res, 502, { error: 'Не получилось узнать песню по ссылке. Попробуйте вставить название.' });
+        }
       }
 
       if (url.pathname === '/api/search') {
@@ -163,6 +180,7 @@ export function createApp({ config = readConfig(), doFetch = fetch, cache: given
   server.on('close', () => {
     limiter.stop();
     shortLimiter.stop();
+    resolveLimiter.stop();
     if (!givenCache) cache.close();
   });
   return server;
