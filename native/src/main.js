@@ -15,6 +15,8 @@ const links = require('./links');
 
 const MUSIC_URL = 'https://music.yandex.ru/';
 const RELEASES_URL = 'https://github.com/imbabyboy/babushkin-jam/releases/latest';
+// Подсказка под «Открывать ссылки в приложении»: без расширения в браузере ссылки до приложения не дойдут.
+const EXTENSION_STORE_URL = 'https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe';
 const MUSIC_HOST_RE = /(^|\.)music\.yandex\.(ru|com|by|kz)$/;
 const POLL_MS = 1000;
 const MINI_DRAG_TICK_MS = 16;
@@ -57,7 +59,7 @@ const HOTKEYS = [
   { accelerator: 'CommandOrControl+Alt+J', label: 'Показать или скрыть плеер', run: () => toggleMini() },
 ];
 const MINI_VIEWS = { nano: 'Нано', micro: 'Микро', normal: 'Нормальный' };
-const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, miniView: 'micro', hotkeys: true, trayIcon: true, rememberPlayback: true };
+const PREF_DEFAULTS = { mode: 'full', closeAction: 'mini', miniOnTop: true, miniView: 'micro', hotkeys: true, trayIcon: true, rememberPlayback: true, openLinks: false };
 // Что окна настроек могут спрашивать у страницы Музыки — то же, что попап расширения у вкладки.
 const MUSIC_MESSAGES = new Set(['yjam:status', 'yjam:diag', 'yjam:control', 'yjam:resync']);
 
@@ -221,6 +223,14 @@ async function restorePlayback(status) {
   }
 }
 
+// Cmd+R: адресной строки и F5 у приложения нет. Трек, время и плейлист после перезагрузки возвращаются,
+// как после запуска.
+function reloadMusic() {
+  rememberPlayback(lastStatus.status, true);
+  restoreState = 'reload';
+  musicContents().reload();
+}
+
 // Результат показываем сразу, а не при следующем опросе: иначе кажется, что кнопка не сработала.
 async function control(action) {
   const result = await askMusic({ type: 'yjam:control', action });
@@ -294,6 +304,95 @@ async function openPendingLink() {
   linkOpening = false;
   pushStatus();
   poll();
+}
+
+// ---------- почему страница Музыки перезагружается ----------
+// С аккаунтом сайт — сборка music-spa, и переход её роутера на страницу трека кончался полной перезагрузкой:
+// сервер отдаёт данные для перехода (…/track/ID.txt?_rsc=) от другой сборки, номер не совпадает. Поэтому
+// page.js включает трек прямо в плеере сайта. Если перезагрузки вернутся: помним последние запросы роутера
+// (заголовок RSC: 1), переходы и ошибки консоли, а при полной перезагрузке пишем их в playback.json
+// (reloads, последние RELOAD_LOG_KEEP) вместе с тем, перезагрузил ли страницу сам page.js.
+const NAV_LOG_MAX = 80;
+const RELOAD_LOG_KEEP = 5;
+const navLog = [];
+
+function noteNav(entry) {
+  navLog.push({ ms: Date.now(), ...entry });
+  if (navLog.length > NAV_LOG_MAX) navLog.shift();
+}
+
+const shortUrl = (url) => {
+  try { const u = new URL(url); return (MUSIC_HOST_RE.test(u.hostname) ? '' : u.host) + u.pathname + u.search; } catch (e) { return String(url); }
+};
+
+function watchMusicRequests() {
+  const filter = { urls: ['https://*.yandex.ru/*', 'https://*.yandex.com/*', 'https://*.yandex.by/*', 'https://*.yandex.kz/*', 'https://*.ya.ru/*'] };
+  const rsc = new Set(); // id запросов роутера сайта: их узнаём по заголовку RSC
+  const pageRequest = (d) => d.resourceType === 'mainFrame' || rsc.has(d.id);
+  const header = (d, name) => {
+    const h = d.responseHeaders || {};
+    const key = Object.keys(h).find((k) => k.toLowerCase() === name);
+    return key ? String(h[key]) : '';
+  };
+  const wr = session.defaultSession.webRequest;
+  wr.onBeforeSendHeaders(filter, (d, callback) => {
+    if (Object.keys(d.requestHeaders).some((k) => k.toLowerCase() === 'rsc')) {
+      rsc.add(d.id);
+      noteNav({ kind: 'rsc-start', url: shortUrl(d.url) });
+    }
+    callback({ requestHeaders: d.requestHeaders });
+  });
+  wr.onBeforeRedirect(filter, (d) => {
+    if (pageRequest(d)) noteNav({ kind: d.resourceType === 'mainFrame' ? 'page-redirect' : 'rsc-redirect', url: shortUrl(d.url), status: d.statusCode, to: shortUrl(d.redirectURL) });
+  });
+  wr.onCompleted(filter, (d) => {
+    if (pageRequest(d)) noteNav({ kind: d.resourceType === 'mainFrame' ? 'page' : 'rsc', url: shortUrl(d.url), status: d.statusCode, type: header(d, 'content-type').split(';')[0], cache: d.fromCache || undefined });
+    rsc.delete(d.id);
+  });
+  wr.onErrorOccurred(filter, (d) => {
+    if (pageRequest(d)) noteNav({ kind: 'error', url: shortUrl(d.url), error: d.error });
+    rsc.delete(d.id);
+  });
+}
+
+function watchMusicReloads(contents) {
+  let loadedOnce = false;
+  // Метку yjam-reload ({ url, at }) ставит page.js, когда сам перезагружает страницу (роутер сайта не сработал).
+  // Со старой страницы её уже не прочитать, а в sessionStorage она переживает перезагрузку — читаем на новой.
+  // Нет свежей метки — перезагрузил сайт.
+  contents.on('did-finish-load', async () => {
+    loadedOnce = true;
+    const { reloads } = playbackStore ? playbackStore.get({ reloads: [] }) : { reloads: [] };
+    const last = reloads[reloads.length - 1];
+    if (!last || last.pageJsReload !== undefined) return;
+    let marker = null;
+    try { marker = JSON.parse(await contents.executeJavaScript("sessionStorage.getItem('yjam-reload')")); } catch (e) {}
+    // Хранилище отдаёт свои объекты: меняем копию, иначе запись не заметит изменений.
+    const pageJsReload = !!marker && Math.abs(Date.parse(last.at) - marker.at) < 5000;
+    // Журнал берём заново: запрос новой страницы со стеком того, кто её открыл, приходит уже после перезагрузки.
+    playbackStore.set({ reloads: [...reloads.slice(0, -1), { ...last, pageJsReload, log: navLog.slice() }] });
+  });
+  contents.on('did-navigate-in-page', (_e, url, isMainFrame) => { if (isMainFrame) noteNav({ kind: 'spa', url: shortUrl(url) }); });
+  // Electron 45 передаёт событие объектом, старые версии — аргументами.
+  contents.on('console-message', (e, ...args) => {
+    const level = e.level !== undefined ? e.level : args[0];
+    const message = e.message !== undefined ? e.message : args[1];
+    if (/preloaded using link preload/.test(String(message))) return;
+    if (level === 'error' || level === 'warning' || level >= 2 || /fall(ing)? back|rsc|navigation/i.test(String(message))) {
+      noteNav({ kind: 'console', level, message: String(message).slice(0, 300) });
+    }
+  });
+  contents.on('did-start-navigation', (details, ...args) => {
+    const url = details.url !== undefined ? details.url : args[0];
+    const sameDocument = details.isSameDocument !== undefined ? details.isSameDocument : args[1];
+    const mainFrame = details.isMainFrame !== undefined ? details.isMainFrame : args[2];
+    if (!mainFrame || sameDocument) return;
+    noteNav({ kind: 'reload', url: shortUrl(url) });
+    if (!loadedOnce || !playbackStore) return;
+    const { reloads } = playbackStore.get({ reloads: [] });
+    reloads.push({ at: new Date().toISOString(), url: shortUrl(url), restore: restoreState, linkOpening, log: navLog.slice() });
+    playbackStore.set({ reloads: reloads.slice(-RELOAD_LOG_KEEP) });
+  });
 }
 
 // ---------- режимы окон ----------
@@ -408,6 +507,7 @@ function createMainWindow(startPath = null) {
   contents.on('enter-html-full-screen', () => { htmlFullScreen = true; layoutMusic(); });
   contents.on('leave-html-full-screen', () => { htmlFullScreen = false; layoutMusic(); });
   contents.on('did-finish-load', () => { if (restoreState === 'reload') restoreState = 'waiting'; });
+  watchMusicReloads(contents);
 
   // Ссылки «в новом окне»: Яндекс — внутри приложения (вход в аккаунт), остальное — в браузере.
   contents.setWindowOpenHandler(({ url }) => {
@@ -819,7 +919,7 @@ function applicationMenu() {
       label: 'Вид',
       submenu: [
         { label: 'Настройки…', accelerator: 'CommandOrControl+,', click: () => openSettings('settings') },
-        { label: 'Обновить страницу', accelerator: 'CommandOrControl+R', click: () => musicContents().reload() },
+        { label: 'Обновить страницу', accelerator: 'CommandOrControl+R', click: reloadMusic },
         { role: 'togglefullscreen', label: 'На весь экран' },
         { type: 'separator' },
         { role: 'zoomIn', label: 'Крупнее' },
@@ -1008,11 +1108,7 @@ function setupIpc() {
   handle('yjam:copy-song-page', async (track) => clipboard.writeText(await YJam.shortSongPageUrl(track)));
   handle('yjam:toggle-settings', (page) => toggleSettings(page === 'settings' ? 'settings' : 'main'));
   handle('yjam:close-settings', () => closeSettings());
-  handle('yjam:reload-music', () => {
-    rememberPlayback(lastStatus.status, true);
-    restoreState = 'reload';
-    musicContents().reload();
-  });
+  handle('yjam:open-extension-store', () => shell.openExternal(EXTENSION_STORE_URL));
   handle('yjam:update-state', () => updater.getState());
   handle('yjam:update-install', () => updater.install());
   handle('yjam:music-ready', () => currentPage() === 'music');
@@ -1138,6 +1234,7 @@ if (!app.requestSingleInstanceLock()) {
     store = createStore(path.join(app.getPath('userData'), 'settings.json'), onStoreChange);
     playbackStore = createStore(path.join(app.getPath('userData'), 'playback.json'), () => {});
     setupSession();
+    watchMusicRequests();
     setupAssets();
     setupUpdater();
     setupIpc();
@@ -1150,7 +1247,7 @@ if (!app.requestSingleInstanceLock()) {
     setInterval(poll, POLL_MS);
     // Из исходников схема зарегистрировалась бы на сам electron — только в установленном приложении.
     if (app.isPackaged) app.setAsDefaultProtocolClient(links.SCHEME);
-    links.startLinkServer(receiveLink);
+    links.startLinkServer(receiveLink, { linksEnabled: () => prefs().openLinks });
     if (launchLink) receiveLink(launchLink);
   });
 }

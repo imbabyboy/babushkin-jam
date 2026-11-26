@@ -1,6 +1,6 @@
 /* Дополнение к стилям попапа. Виджета в приложении нет, поэтому нет и кнопок для него.
-   Выбор, где открывать ссылки, — настройка расширения: в приложение их отдаёт браузер. */
-#widget, #pip, .field:has(#w-ym), .field:has(#l-app) { display: none; }
+   Ссылки настраиваются здесь же, переключателем приложения, а строка попапа только для расширения. */
+#widget, #pip, .field:has(#w-ym), #links { display: none; }
 
 /* Настройки живут внутри окна: ширину задаёт оно, а если не хватает высоты, они прокручиваются. */
 html { background: var(--bg); overflow-y: auto; }
@@ -43,3 +43,11 @@ html[data-page="main"] #tools { display: none; }
 .keys[hidden] { display: none; }
 .keys dt { color: var(--muted); }
 .keys dd { margin: 0; font-family: var(--mono); color: var(--soft); }
+
+/* Галочка ссылок включена, а расширение в браузере не готово: подсказка, значок ссылки на магазин, «Я установил». */
+.links-hint { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: -6px; padding: 9px 10px 10px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-fg); font-size: 12.5px; line-height: 1.35; }
+.links-hint-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.links-store { flex: none; width: 26px; height: 26px; color: var(--warn-fg); }
+.links-store svg { width: 15px; height: 15px; stroke-width: 2; }
+.links-done { align-self: stretch; display: flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px; border-color: currentColor; color: var(--warn-fg); font-size: 12.5px; line-height: 1; }
+.links-done:hover { background: rgba(255, 207, 138, .12); color: var(--warn-fg); }

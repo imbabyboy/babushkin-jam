@@ -64,7 +64,15 @@ svg.solid { fill: currentColor; stroke: none; }
 .title, .artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title { font-weight: 600; }
 .artist { color: var(--muted); font-size: 12.5px; min-height: 17px; }
-.loading { padding: 5px 9px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font-size: 12.5px; line-height: 1.3; }
+/* Медленный блик, как у скелетона: видно, что загрузка идёт, а не зависла. */
+.loading {
+  padding: 5px 9px; border-radius: 8px; color: var(--warn-fg); font-size: 12.5px; line-height: 1.3;
+  background: linear-gradient(100deg, var(--warn-bg) 35%, #5A4318 50%, var(--warn-bg) 65%) var(--warn-bg);
+  background-size: 300% 100%;
+  animation: loading-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes loading-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .loading { animation: none; } }
 .window-buttons { display: flex; align-self: flex-start; flex: none; }
 
 .icon { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--soft); }

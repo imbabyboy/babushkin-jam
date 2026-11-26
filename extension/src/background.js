@@ -72,29 +72,61 @@ chrome.tabs.onUpdated.addListener(async (tabId, info) => {
 });
 
 // ---------- ссылки в приложение ----------
+// Открывать ли ссылки на Яндекс Музыку в приложении, решает настройка приложения babushkin-jam.
+// Запущенное приложение слушает 127.0.0.1 и само отвечает; его ответ помним в openLinksInApp,
+// чтобы незапущенное открыть по ссылке babushkin-jam://, только если там это включено.
+// Заголовок X-YJam страницы сайтов отправить не могут: приложение разрешает CORS только расширениям,
+// поэтому доступ к 127.0.0.1 расширению не нужен.
 const APP_TIMEOUT_MS = 800;
 
-// Запущенное приложение принимает ссылку на 127.0.0.1. Заголовок X-YJam страницы сайтов
-// без разрешения приложения не отправят — открыть так ссылку может только расширение.
-async function sendToApp(url) {
-  if (!(await chrome.permissions.contains({ origins: YJam.APP_ORIGINS }))) return false;
+function askApp(path, method = 'GET') {
+  return fetch(`http://127.0.0.1:${YJam.APP_PORT}${path}`, {
+    method, headers: { 'X-YJam': chrome.runtime.getManifest().version }, signal: AbortSignal.timeout(APP_TIMEOUT_MS),
+  });
+}
+
+// Настройка из приложения; не запущено — то, что оно говорило в последний раз.
+async function appPrefs() {
   try {
-    const res = await fetch(`http://127.0.0.1:${YJam.APP_PORT}/open?url=${encodeURIComponent(url)}`, {
-      method: 'POST', headers: { 'X-YJam': '1' }, signal: AbortSignal.timeout(APP_TIMEOUT_MS),
-    });
-    return res.ok;
-  } catch { return false; }
+    const res = await askApp('/prefs');
+    if (res.ok) {
+      const { openLinks } = await res.json();
+      await chrome.storage.local.set({ openLinksInApp: !!openLinks });
+      return { openLinks: !!openLinks, running: true };
+    }
+    // Приложение старше 1.7 настройки не знает: ссылки в него не отдаём.
+    await chrome.storage.local.set({ openLinksInApp: false });
+    return { openLinks: false, running: true };
+  } catch {
+    const { openLinksInApp } = await chrome.storage.local.get({ openLinksInApp: false });
+    return { openLinks: openLinksInApp, running: false };
+  }
+}
+
+// 'sent' — приложение открыло ссылку, 'off' — в нём это выключено, 'offline' — не запущено.
+async function sendToApp(url) {
+  try {
+    const res = await askApp(`/link?url=${encodeURIComponent(url)}`, 'POST');
+    const sent = res.status === 204;
+    await chrome.storage.local.set({ openLinksInApp: sent });
+    return sent ? 'sent' : 'off';
+  } catch { return 'offline'; }
 }
 
 // Открылась в приложении — вкладка не нужна: новую закрываем, в старой возвращаемся назад.
-// Приложение не запущено — запускаем по схеме babushkin-jam:// (браузер спросит разрешение), вкладка остаётся.
+// Приложение не запущено, но ссылки в нём включены — запускаем по схеме babushkin-jam://
+// (браузер спросит разрешение), вкладка остаётся.
 async function openInApp(url, tab, fresh) {
-  if (await sendToApp(url)) {
+  const result = await sendToApp(url);
+  if (result === 'sent') {
     if (fresh) chrome.tabs.remove(tab.id).catch(() => {});
     else chrome.tabs.goBack(tab.id).catch(() => {});
     return { sent: true };
   }
-  await chrome.tabs.update(tab.id, { url: YJam.appLink(url) }).catch(() => {});
+  if (result === 'offline') {
+    const { openLinksInApp } = await chrome.storage.local.get({ openLinksInApp: false });
+    if (openLinksInApp) await chrome.tabs.update(tab.id, { url: YJam.appLink(url) }).catch(() => {});
+  }
   return { sent: false };
 }
 
@@ -156,11 +188,26 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   if (returnTo && (tabId === returnTo.tabId || tabId === returnTo.ymTabId)) chrome.storage.local.remove('returnTo');
 });
 
+// Шрифт для виджета на чужом сайте: страница сама адрес chrome-extension:// не всегда может загрузить
+// (YouTube), поэтому отдаём байты отсюда, в base64 — сообщения переносят только JSON.
+const FONT_FILE_RE = /^[a-z-]+\.woff2$/;
+async function fontBase64(file) {
+  if (!FONT_FILE_RE.test(String(file))) return null;
+  const res = await fetch(chrome.runtime.getURL('fonts/' + file));
+  if (!res.ok) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { base64: btoa(binary) };
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'yjam:font') { fontBase64(msg.file).then(reply, () => reply(null)); return true; }
   if (msg.type === 'yjam:relay') { relay(msg.msg).then(reply); return true; }
   if (msg.type === 'yjam:focus') { focusTab(msg.from || sender.tab).then(reply); return true; }
   if (msg.type === 'yjam:back') { goBack().then(reply); return true; }
   if (msg.type === 'yjam:claim' && sender.tab) { claim(sender.tab, !!msg.force).then(reply); return true; }
+  if (msg.type === 'yjam:app-prefs') { appPrefs().then(reply); return true; }
   if (msg.type === 'yjam:open-in-app' && sender.tab && YM_RE.test(msg.url || '')) {
     openInApp(msg.url, sender.tab, !!msg.fresh).then(reply);
     return true;
@@ -191,8 +238,9 @@ async function syncWidget(inject = false) {
   }
 }
 
-chrome.runtime.onInstalled.addListener(() => syncWidget());
-chrome.runtime.onStartup.addListener(() => syncWidget());
+// Заодно приложение узнаёт, что расширение установлено, и показывает свою настройку ссылок.
+chrome.runtime.onInstalled.addListener(() => { syncWidget(); appPrefs(); });
+chrome.runtime.onStartup.addListener(() => { syncWidget(); appPrefs(); });
 // Доступ ко всем сайтам выдают только по «На всех сайтах» / «окно в окне» — значит, включаем. Попап мог
 // закрыться, пока Chrome спрашивал, и сам не успел записать настройку. Доступ к 127.0.0.1 — для ссылок, не для виджета.
 chrome.permissions.onAdded.addListener(({ origins = [] }) => {

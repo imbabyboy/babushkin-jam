@@ -42,6 +42,7 @@
   desktop.onSettingsState(({ open, page }) => {
     $('jam').setAttribute('aria-expanded', String(open && page === 'main'));
     $('settings').setAttribute('aria-pressed', String(open && page === 'settings'));
+    document.body.classList.toggle('settings-open', open);
   });
 
   // Джем и настройки открываются под своими кнопками, а их положение знает только эта страница.

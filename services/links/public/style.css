@@ -53,15 +53,39 @@ button, .open { font: inherit; cursor: pointer; }
 .find { padding: 7px 12px; color: var(--muted); font-size: 13.5px; text-decoration: underline; text-underline-offset: 3px; }
 .find:hover { color: var(--fg); }
 .dash { padding-right: 12px; color: var(--faint); }
-.secondary { align-self: flex-start; height: 38px; padding: 0 14px; border: 1px solid #3A3A3A; border-radius: 9px; background: none; color: var(--fg); }
-.secondary:hover:not(:disabled) { background: var(--field); }
+.copy { display: inline-flex; align-items: center; gap: 6px; }
+.copy-icon { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* «Скопировать ссылку на страницу» — как «Скопировать» у сервисов: серая, со значком. */
+.share { align-self: flex-start; padding-left: 4px; }
 button:disabled { cursor: default; }
+
+/* Telegram-бот: значок, название с тегом и кнопка с бликом, как у кнопок на t.me (telegram.css, .tgme_action_button_new.shine). */
+.tg { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.tg-logo { width: 36px; height: 36px; flex: none; }
+.tg-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tg-name, .tg-tag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-name { font-weight: 700; }
+.tg-tag { color: var(--muted); font-size: 13px; }
+.tg-button {
+  flex: none; display: inline-flex; align-items: center; height: 38px; padding: 0 20px; overflow: hidden;
+  border-radius: 19px; background-color: #1C93E3; color: #FFF;
+  font-size: 13px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; text-decoration: none;
+}
+.tg-button:hover { background-color: #1A8AD5; }
+.tg-button.shine {
+  background-image: linear-gradient(270deg, rgba(100, 181, 239, 0) 48.44%, #64B5EF 75.52%, rgba(100, 181, 239, 0) 100%);
+  background-repeat: no-repeat;
+  animation: bg-move linear 5s infinite;
+}
+@keyframes bg-move { 0% { background-position: -500px 0; } 100% { background-position: 1000px 0; } }
+@media (prefers-reduced-motion: reduce) { .tg-button.shine { animation: none; background-image: none; } }
 
 .footer { padding: 16px; color: var(--faint); font-size: 12px; text-align: center; }
 .footer a { color: inherit; text-underline-offset: 2px; }
 .footer a:hover { color: var(--fg); }
 
 @media (max-width: 400px) {
+  .tg-button { padding: 0 14px; }
   .ghost { padding: 7px 6px; }
   .open { padding: 7px 9px; }
 }

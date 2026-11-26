@@ -49,3 +49,38 @@ test('приёмник на 127.0.0.1: только POST от расширени
   assert.equal((await fetch(evil, { method: 'POST', headers: { 'X-YJam': '1' } })).status, 400, 'чужой адрес');
   assert.deepEqual(got, ['https://music.yandex.ru/album/7']);
 });
+
+test('настройка приложения: /link открывает, только если включено; /prefs её отдаёт', async (t) => {
+  const got = [];
+  let enabled = false;
+  const server = startLinkServer((link) => got.push(link), { linksEnabled: () => enabled });
+  t.after(() => server.close());
+  await new Promise((r) => server.once('listening', r));
+  const link = `http://127.0.0.1:${PORT}/link?url=` + encodeURIComponent('https://music.yandex.ru/album/7');
+  const prefs = `http://127.0.0.1:${PORT}/prefs`;
+  const H = { 'X-YJam': '1.7.0' };
+
+  assert.deepEqual(await (await fetch(prefs, { headers: H })).json(), { openLinks: false });
+  assert.equal((await fetch(link, { method: 'POST', headers: H })).status, 403, 'выключено');
+  enabled = true;
+  assert.deepEqual(await (await fetch(prefs, { headers: H })).json(), { openLinks: true });
+  assert.equal((await fetch(link, { method: 'POST', headers: H })).status, 204);
+  assert.equal((await fetch(prefs)).status, 400, 'без заголовка');
+  assert.deepEqual(got, ['https://music.yandex.ru/album/7']);
+});
+
+test('CORS: расширениям можно, сайтам нет', async (t) => {
+  const server = startLinkServer(() => {});
+  t.after(() => server.close());
+  await new Promise((r) => server.once('listening', r));
+  const preflight = (origin) => fetch(`http://127.0.0.1:${PORT}/prefs`, {
+    method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'x-yjam' },
+  });
+  const ext = 'chrome-extension://iincaikpjidieflnaajiehogcimgbepe';
+  const ok = await preflight(ext);
+  assert.equal(ok.status, 204);
+  assert.equal(ok.headers.get('access-control-allow-origin'), ext);
+  const site = await preflight('https://evil.example');
+  assert.equal(site.status, 403);
+  assert.equal(site.headers.get('access-control-allow-origin'), null);
+});

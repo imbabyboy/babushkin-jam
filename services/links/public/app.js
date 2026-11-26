@@ -12,6 +12,8 @@
   const QUERY_PARAMS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym'];
   const COPIED_MS = 1200;
   const SHORT_PATH = /\/[0-9A-Za-z]{7}$/;
+  // Бот скачивает песню по коду короткой ссылки: сам открывает её страницу и читает мета-тег song-query.
+  const TELEGRAM_BOT = 'minusFourDwnldrBot';
   const $ = (id) => document.getElementById(id);
   let requestId = 0;
   let shortening = Promise.resolve();
@@ -35,15 +37,32 @@
     $('status').hidden = !text;
   }
 
+  // Меняем только подпись: значок копирования у кнопки остаётся.
   async function copy(text, button) {
     await navigator.clipboard.writeText(text);
-    const label = button.textContent;
-    button.textContent = 'Скопировано';
+    const label = button.querySelector('.label') || button;
+    const was = label.textContent;
+    label.textContent = 'Скопировано';
     button.disabled = true;
     setTimeout(() => {
-      button.textContent = label;
+      label.textContent = was;
       button.disabled = false;
     }, COPIED_MS);
+  }
+
+  // Два квадратика, как у кнопки «Скопировать ссылку на страницу» в index.html.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function copyIcon() {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'copy-icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    for (const [k, v] of Object.entries({ x: 9, y: 9, width: 11, height: 11, rx: 2 })) rect.setAttribute(k, v);
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', 'M5 15V6a2 2 0 0 1 2-2h9');
+    svg.append(rect, path);
+    return svg;
   }
 
   function element(tag, className, text) {
@@ -75,7 +94,8 @@
       open.href = result.url;
       open.target = '_blank';
       open.rel = 'noopener noreferrer';
-      const copyButton = element('button', 'ghost', 'Скопировать');
+      const copyButton = element('button', 'ghost copy');
+      copyButton.append(copyIcon(), element('span', 'label', 'Скопировать'));
       copyButton.type = 'button';
       copyButton.onclick = () => copy(result.url, copyButton);
       actions.append(open, copyButton);
@@ -105,13 +125,32 @@
   }
 
   // Длинный адрес с параметрами меняем на короткий, чтобы делиться было удобно. Не вышло — остаётся длинный.
+  // Возвращает код короткой ссылки или null.
   async function shorten(search, id) {
     try {
       const res = await fetch('api/short?' + search);
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const { code } = await res.json();
-      if (id === requestId && SHORT_PATH.test('/' + code)) history.replaceState({ search: String(search) }, '', code);
-    } catch {}
+      if (!SHORT_PATH.test('/' + code)) return null;
+      if (id === requestId) history.replaceState({ search: String(search) }, '', code);
+      return code;
+    } catch {
+      return null;
+    }
+  }
+
+  const shortCode = () => (location.pathname.match(SHORT_PATH) || [''])[0].slice(1) || null;
+
+  // Кнопка бота под названием трека. Бот качает только песню, поэтому для альбома или исполнителя
+  // (нет songname или q) их нет. Без кода — тоже: ссылка на прошлую песню хуже, чем никакой.
+  function showTelegram(code, p) {
+    const on = !!code && !!(p.get('songname') || p.get('q'));
+    for (const block of document.querySelectorAll('.tg')) {
+      block.hidden = !on;
+      const link = block.querySelector('.tg-button');
+      if (on) link.href = `https://t.me/${TELEGRAM_BOT}?start=j${code}`;
+      else link.removeAttribute('href');
+    }
   }
 
   async function load() {
@@ -119,6 +158,7 @@
     const id = ++requestId;
     $('q').value = queryLine(p);
     $('result').hidden = true;
+    showTelegram(null, p);
     if (!hasText(p)) {
       showStatus('');
       return;
@@ -126,7 +166,8 @@
     showStatus('Ищем на сервисах…');
     const search = new URLSearchParams();
     for (const name of QUERY_PARAMS) if (p.get(name)) search.set(name, p.get(name));
-    shortening = location.search ? shorten(search, id) : Promise.resolve();
+    shortening = location.search ? shorten(search, id) : Promise.resolve(shortCode());
+    shortening.then((code) => { if (id === requestId) showTelegram(code, p); });
     try {
       const res = await fetch('api/search?' + search);
       const data = await res.json();
