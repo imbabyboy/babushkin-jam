@@ -8,3 +8,5 @@ babushkin-jam-ui-mockups/
 native/generated/
 # кэш сервиса ссылок
 services/links/*.db*
+# журнал сессий сервера комнат при локальном запуске
+services/rooms/data/

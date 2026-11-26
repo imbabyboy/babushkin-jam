@@ -113,19 +113,59 @@ async function sendToApp(url) {
   } catch { return 'offline'; }
 }
 
+const APP_LAUNCH_WAIT_MS = 15000;
+const APP_POLL_MS = 400;
+
 // Открылась в приложении — вкладка не нужна: новую закрываем, в старой возвращаемся назад.
-// Приложение не запущено, но ссылки в нём включены — запускаем по схеме babushkin-jam://
-// (браузер спросит разрешение), вкладка остаётся.
+function leaveTab(tabId, fresh) {
+  if (fresh) chrome.tabs.remove(tabId).catch(() => {});
+  else chrome.tabs.goBack(tabId).catch(() => {});
+}
+
+// Ждём, пока запущенное по ссылке приложение начнёт отвечать. Браузер может сначала спросить разрешение,
+// поэтому ждём с запасом (15 с — меньше 30 с, после которых Chrome может остановить service worker).
+async function waitForApp() {
+  const until = Date.now() + APP_LAUNCH_WAIT_MS;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, APP_POLL_MS));
+    try {
+      await askApp('/prefs');
+      return true;
+    } catch {}
+  }
+  return false;
+}
+
+// Приложение запустилось — вкладку убираем. Не запустилось (отказали в разрешении, приложения нет) —
+// открываем страницу заново уже как обычную: links.js остановил её загрузку. #yjam-stay — больше не перехватывать.
+async function finishLaunch(tabId, url, fresh) {
+  if (await waitForApp()) {
+    leaveTab(tabId, fresh);
+    return;
+  }
+  try {
+    await chrome.tabs.update(tabId, { url: url.replace(/#.*$/, '') + '#yjam-stay' });
+    await chrome.tabs.reload(tabId); // смена только хеша страницу не перезагружает
+  } catch {} // вкладку уже закрыли
+}
+
+// Приложение не запущено, но ссылки в нём включены — запускаем по схеме babushkin-jam://, ссылку оно
+// получит при запуске. Ответ { launching } уходит сразу: links.js останавливает загрузку сайта. Живая страница
+// синхронизирует плеер между устройствами аккаунта и подменяла в приложении открытый трек прошлым (26 ноября 2026).
 async function openInApp(url, tab, fresh) {
   const result = await sendToApp(url);
   if (result === 'sent') {
-    if (fresh) chrome.tabs.remove(tab.id).catch(() => {});
-    else chrome.tabs.goBack(tab.id).catch(() => {});
+    leaveTab(tab.id, fresh);
     return { sent: true };
   }
   if (result === 'offline') {
     const { openLinksInApp } = await chrome.storage.local.get({ openLinksInApp: false });
-    if (openLinksInApp) await chrome.tabs.update(tab.id, { url: YJam.appLink(url) }).catch(() => {});
+    if (!openLinksInApp) return { sent: false };
+    try {
+      await chrome.tabs.update(tab.id, { url: YJam.appLink(url) });
+    } catch { return { sent: false }; }
+    finishLaunch(tab.id, url, fresh);
+    return { launching: true };
   }
   return { sent: false };
 }

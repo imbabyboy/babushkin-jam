@@ -8,11 +8,19 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
+import { createUsageLog } from './usage.js';
 
 const PORT = Number(process.env.PORT) || 8787;
-const EMPTY_ROOM_TTL_MS = 5 * 60 * 1000; // пустая комната живёт 5 минут — на случай перезагрузок
+// пустая комната живёт 5 минут — на случай перезагрузок (переменная окружения — для проверок)
+const EMPTY_ROOM_TTL_MS = Number(process.env.EMPTY_ROOM_TTL_MS) || 5 * 60 * 1000;
 
 const rooms = new Map(); // code -> room
+
+// Журнал сессий для понимания нагрузки (usage.js). Имена автора — из окружения, в репозитории их нет.
+const usage = createUsageLog({
+  file: process.env.USAGE_LOG || new URL('./data/usage.jsonl', import.meta.url).pathname,
+  ownerNames: (process.env.JAM_OWNER_NAMES || '').split(','),
+});
 
 const str = (v, max = 300) => (typeof v === 'string' ? v.slice(0, max) : '');
 const num = (v, def = 0) => (Number.isFinite(v) && v >= 0 ? v : def);
@@ -105,7 +113,11 @@ function leave(client) {
   // фиксируем позицию, чтобы время продолжало считаться от «сейчас»
   setPosition(room, livePosition(room));
   if (room.members.size === 0) {
-    room.dropTimer = setTimeout(() => rooms.delete(room.code), EMPTY_ROOM_TTL_MS);
+    usage.empty(room);
+    room.dropTimer = setTimeout(() => {
+      usage.finish(room);
+      rooms.delete(room.code);
+    }, EMPTY_ROOM_TTL_MS);
     return;
   }
   bump(room, 'leave', client.id);
@@ -128,6 +140,7 @@ function handle(client, m) {
       client.name = str(m.name, 40).trim() || 'Гость';
       client.room = r;
       r.members.set(client.id, { id: client.id, name: client.name, ws: client.ws });
+      usage.join(r, client.name);
       if (!r.leaderId) r.leaderId = client.id;
       client.send({ t: 'welcome', clientId: client.id, serverTime: Date.now() });
       // позицию фиксируем, чтобы новичок посчитал её от свежего updatedAt
@@ -199,6 +212,7 @@ function handle(client, m) {
       if (!name || name === client.name) return;
       client.name = name;
       room.members.get(client.id).name = name;
+      usage.rename(room, name);
       bump(room, 'rename', client.id);
       return;
     }
@@ -208,7 +222,24 @@ function handle(client, m) {
 // Политика конфиденциальности для Chrome Web Store
 const PRIVACY = fs.readFileSync(new URL('./privacy.html', import.meta.url));
 
+// Кто сейчас в комнате, без входа в неё: приложение при запуске решает, звать ли обратно в прошлую комнату.
+// Только имена — то же, что увидит любой вошедший по коду. Комнату не создаёт и таймер пустой не трогает.
+const ROOM_PATH = /^\/rooms\/([^/?#]{1,32})$/;
+
+function roomMembers(code) {
+  const room = rooms.get(code.trim().toUpperCase());
+  return room ? [...room.members.values()].map((m) => ({ name: m.name })) : [];
+}
+
 const server = http.createServer((req, res) => {
+  const roomPath = req.url.match(ROOM_PATH);
+  if (roomPath && req.method === 'GET') {
+    let code = '';
+    try { code = decodeURIComponent(roomPath[1]); } catch {}
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ members: code ? roomMembers(code) : [] }));
+    return;
+  }
   if (req.url === '/privacy' || req.url === '/privacy/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(PRIVACY);
@@ -246,5 +277,13 @@ setInterval(() => {
     ws.ping();
   }
 }, 30_000);
+
+// Деплой и рестарт контейнера (SIGTERM): незакрытые сессии записываем, иначе они пропадут из журнала.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    for (const room of rooms.values()) usage.finish(room, 'restart');
+    process.exit(0);
+  });
+}
 
 server.listen(PORT, () => console.log(`yandex-jam server: ws://localhost:${PORT}`));

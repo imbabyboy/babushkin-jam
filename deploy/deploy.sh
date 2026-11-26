@@ -12,6 +12,8 @@
 #                     Например 127.0.0.1:8081, если порт 80 занят nginx и он проксирует туда домен.
 #   JAM_CADDY_SITES   адреса для Caddy вместо домена, см. docs/SELF_HOSTING.md
 #   JAM_SUBDOMAINS    1, если сервисы отвечают на поддоменах sync и share, см. docs/SELF_HOSTING.md
+#   JAM_OWNER_NAMES   имена автора через запятую: его сессии журнал использования помечает как «мои»
+#                     (services/rooms/usage.js; журнал — $DIR/data/usage.jsonl, смотреть: node tools/jam-usage.js)
 set -e
 
 ENV_FILE="$(dirname "$0")/.env"
@@ -29,16 +31,21 @@ JAM_HTTP_PUBLISH="${JAM_HTTP_PUBLISH:-80}"
 DIR=/opt/yandex-jam
 
 ssh "$JAM_HOST" "mkdir -p $DIR"
-scp services/rooms/server.js services/rooms/privacy.html services/rooms/package.json services/rooms/package-lock.json deploy/Dockerfile "$JAM_HOST:$DIR/"
+scp services/rooms/server.js services/rooms/usage.js services/rooms/privacy.html services/rooms/package.json services/rooms/package-lock.json deploy/Dockerfile "$JAM_HOST:$DIR/"
 # в Caddyfile домен и порт подставляются при деплое
 render_caddyfile | ssh "$JAM_HOST" "cat > $DIR/Caddyfile"
+# Имена — файлом, а не в командной строке: --env-file берёт значение как есть, без кавычек и экранирования.
+printf 'JAM_OWNER_NAMES=%s\n' "${JAM_OWNER_NAMES:-}" | ssh "$JAM_HOST" "cat > $DIR/rooms.env"
 
 ssh "$JAM_HOST" "set -e
 cd $DIR
 docker network inspect yandex-jam >/dev/null 2>&1 || docker network create yandex-jam
 docker build -q -t yandex-jam-server .
 docker rm -f yandex-jam >/dev/null 2>&1 || true
-docker run -d --name yandex-jam --network yandex-jam --restart unless-stopped yandex-jam-server
+# журнал использования переживает пересоздание контейнера; в контейнере пользователь node (uid 1000)
+mkdir -p $DIR/data && chown 1000:1000 $DIR/data
+docker run -d --name yandex-jam --network yandex-jam --restart unless-stopped \\
+  --env-file $DIR/rooms.env -v $DIR/data:/app/data yandex-jam-server
 if docker inspect yandex-jam-caddy >/dev/null 2>&1; then
   docker exec yandex-jam-caddy caddy reload --config /etc/caddy/Caddyfile
 else

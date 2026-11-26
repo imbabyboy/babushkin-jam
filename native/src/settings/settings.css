@@ -51,3 +51,9 @@ html[data-page="main"] #tools { display: none; }
 .links-store svg { width: 15px; height: 15px; stroke-width: 2; }
 .links-done { align-self: stretch; display: flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px; border-color: currentColor; color: var(--warn-fg); font-size: 12.5px; line-height: 1; }
 .links-done:hover { background: rgba(255, 207, 138, .12); color: var(--warn-fg); }
+
+/* «Вернуться в комнату?» после запуска (settings.js): вместо лобби, пока в прошлой комнате кто-то есть. */
+.return-room { display: none; }
+html[data-return-room] #setup { display: none !important; }
+html[data-return-room] #setup:not([hidden]) + .return-room { display: flex; }
+.return-code { flex: none; color: var(--fg); font: 600 13px var(--mono); letter-spacing: .06em; }
