@@ -53,8 +53,7 @@ test('приёмник на 127.0.0.1: только POST от расширени
 test('настройка приложения: /link открывает, только если включено; /prefs её отдаёт', async (t) => {
   const got = [];
   let enabled = false;
-  let seen = 0;
-  const server = startLinkServer((link) => got.push(link), { linksEnabled: () => enabled, onExtension: () => seen++ });
+  const server = startLinkServer((link) => got.push(link), { linksEnabled: () => enabled });
   t.after(() => server.close());
   await new Promise((r) => server.once('listening', r));
   const link = `http://127.0.0.1:${PORT}/link?url=` + encodeURIComponent('https://music.yandex.ru/album/7');
@@ -68,7 +67,6 @@ test('настройка приложения: /link открывает, тол�
   assert.equal((await fetch(link, { method: 'POST', headers: H })).status, 204);
   assert.equal((await fetch(prefs)).status, 400, 'без заголовка');
   assert.deepEqual(got, ['https://music.yandex.ru/album/7']);
-  assert.ok(seen >= 4, 'запросы расширения отмечены');
 });
 
 test('CORS: расширениям можно, сайтам нет', async (t) => {

@@ -119,15 +119,29 @@ var YJam = (() => {
     ['YJam Mono', 'jbmono-latin.woff2', '500 700', LATIN],
   ];
 
+  // На чужом сайте (виджет, панель на Музыке) любой запрос к адресу chrome-extension:// идёт от страницы,
+  // и некоторые сайты (YouTube) его не пускают: «Unsafe attempt to load URL chrome-extension://…» в ошибках
+  // расширения — и по url() в FontFace, и по fetch. Поэтому там байты шрифта отдаёт фон расширения
+  // (background.js, yjam:font), а FontFace получает их готовыми. Попап и окна приложения грузят по адресу:
+  // там это работает, а сообщений к фону у окон приложения нет.
+  const onWebPage = () => /^https?:$/.test(location.protocol);
+
+  async function fontSource(file) {
+    if (!onWebPage()) return `url("${chrome.runtime.getURL('fonts/' + file)}") format("woff2")`;
+    const r = await chrome.runtime.sendMessage({ type: 'yjam:font', file });
+    if (!r || !r.base64) throw new Error('шрифт не пришёл: ' + file);
+    return Uint8Array.from(atob(r.base64), (c) => c.charCodeAt(0)).buffer;
+  }
+
   let fontsLoaded = false;
   function loadFonts() {
     if (fontsLoaded || typeof FontFace === 'undefined') return;
     fontsLoaded = true;
     for (const [family, file, weight, unicodeRange] of FONTS) {
-      try {
-        const url = chrome.runtime.getURL('fonts/' + file);
-        document.fonts.add(new FontFace(family, `url("${url}") format("woff2")`, { weight, unicodeRange }));
-      } catch (e) {}
+      // Не вышло — останется системный шрифт, виджет от этого не ломается.
+      fontSource(file)
+        .then((source) => { document.fonts.add(new FontFace(family, source, { weight, unicodeRange })); })
+        .catch(() => {});
     }
   }
 

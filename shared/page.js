@@ -458,6 +458,27 @@
     return !!(await waitFor(() => cancelled() || isPlaying(id), DIRECT_WAIT_MS)) && !cancelled();
   }
 
+  // Ссылка на альбом или исполнителя — тоже прямо в плеере сайта, по той же причине: переход на их страницу
+  // в music-spa перезагружает её, и кнопка «Воспроизведение» после этого нажималась не всегда.
+  // Альбом играет с первого трека, исполнитель — с популярных, как их кнопки на сайте.
+  async function playEntityDirect(type, id) {
+    const player = findSitePlayer();
+    if (!player || typeof player.playContext !== 'function') return false;
+    const before = currentTrack();
+    try {
+      Promise.resolve(player.playContext({
+        contextData: { type, meta: { id: Number(id) }, from: DIRECT_FROM },
+        loadContextMeta: true,
+      })).catch(() => {});
+    } catch (e) { return false; }
+    const started = () => {
+      const t = currentTrack();
+      if (!t || snapshot().paused) return false;
+      return type === 'album' ? t.albumId === String(id) : !before || t.id !== before.id;
+    };
+    return !!(await waitFor(started, DIRECT_WAIT_MS));
+  }
+
   // Каждый новый вызов отменяет предыдущий: иначе две попытки (из комнаты и из консоли)
   // жмут кнопки одновременно и мешают друг другу.
   let playGen = 0;
@@ -993,6 +1014,8 @@
       const pathname = path.split('?')[0];
       const track = pathname.match(/^\/album\/(\d+)\/track\/(\d+)\/?$/) || pathname.match(/^\/track\/(\d+)\/?$/);
       if (track) return playTrack(track.length === 3 ? { albumId: track[1], id: track[2] } : { id: track[1] });
+      const entity = pathname.match(/^\/(album|artist)\/(\d+)\/?$/);
+      if (entity && await playEntityDirect(entity[1], entity[2])) return { ok: true, via: 'player', method: 'context' };
       if (location.pathname !== pathname) {
         const via = await waitFor(() => spaNavigate(path), SPA_WAIT_MS);
         if (!via) return { ok: false, error: 'страница не открылась' };

@@ -117,29 +117,30 @@
   };
   const hotkeys = checkbox('Горячие клавиши', (on) => chrome.storage.local.set({ hotkeys: on }));
 
-  // Ссылки из Telegram, почты и с сайтов в приложение передаёт расширение для Chrome: настройка здесь,
-  // а расширение спрашивает её у приложения. Расширения нет — вместо переключателя ссылка на магазин.
-  const openLinks = checkbox('Открывать ссылки на Яндекс Музыку в приложении', (on) => chrome.storage.local.set({ openLinks: on }));
-  const linksHint = el('p', 'disclaimer');
-  const storeLink = el('button', 'btn-outline store-link');
-  storeLink.append(svg(ICON_OPEN), el('span', '', 'Расширение в Chrome Web Store'));
-  storeLink.onclick = () => desktop.openExtensionStore();
-
+  // Ссылки из Telegram, почты и с сайтов в приложение передаёт расширение в браузере: настройка здесь, а расширение
+  // спрашивает её у приложения. Установлено ли и включено ли оно, приложению наверняка не узнать, поэтому после
+  // включения галочки подсказка со ссылкой на магазин есть всегда; «Я установил» прячет её, пока галочку
+  // не включат заново.
+  const openLinks = checkbox('Открывать ссылки на Яндекс Музыку в приложении', (on) => chrome.storage.local.set(
+    on ? { openLinks: true, openLinksHintHidden: false } : { openLinks: false },
+  ));
+  const linksHintText = el('span', 'links-hint-text', 'Требуется установить расширение для браузера');
+  const storeLink = iconButton('icon-btn links-store', 'Открыть расширение в Chrome Web Store', ICON_OPEN, () => desktop.openExtensionStore());
+  const linksHintRow = el('div', 'links-hint-row');
+  linksHintRow.append(linksHintText, storeLink);
+  const installedButton = el('button', 'btn-outline links-done', 'Я установил');
+  installedButton.onclick = () => chrome.storage.local.set({ openLinksHintHidden: true });
+  const linksHint = el('div', 'links-hint');
+  linksHint.append(linksHintRow, installedButton);
   async function renderLinks(on) {
-    const { installed } = await desktop.extensionState();
-    openLinks.hidden = !installed;
-    storeLink.hidden = installed;
     openLinks.show(on);
-    // С расширением переключатель понятен и без подсказки.
-    linksHint.hidden = installed;
-    linksHint.textContent = 'Ссылки в приложение передаёт расширение babushkin-jam для Chrome. Установите его, и здесь появится переключатель.';
+    const { openLinksHintHidden } = await chrome.storage.local.get({ openLinksHintHidden: false });
+    linksHint.hidden = !on || openLinksHintHidden;
   }
 
   const keyList = el('dl', 'keys');
   for (const h of info.hotkeys) keyList.append(el('dt', '', h.label), el('dd', '', h.keys));
 
-  const reload = el('button', 'btn-outline', 'Обновить страницу Яндекс Музыки');
-  reload.onclick = () => desktop.reloadMusic();
 
   const version = el('p', 'disclaimer', `Приложение ${info.version} · ${info.platform}`);
 
@@ -156,14 +157,13 @@
     hotkeys,
     keyList,
     openLinks,
-    storeLink,
     linksHint,
   );
   if (inTray) {
     $('tray-options').append(options);
   } else {
     const section = el('div', 'stack app-section');
-    section.append(el('div', 'sep'), options, reload, version);
+    section.append(el('div', 'sep'), options, version);
     document.getElementById('settings-done').before(section);
   }
 

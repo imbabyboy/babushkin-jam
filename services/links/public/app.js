@@ -37,15 +37,32 @@
     $('status').hidden = !text;
   }
 
+  // Меняем только подпись: значок копирования у кнопки остаётся.
   async function copy(text, button) {
     await navigator.clipboard.writeText(text);
-    const label = button.textContent;
-    button.textContent = 'Скопировано';
+    const label = button.querySelector('.label') || button;
+    const was = label.textContent;
+    label.textContent = 'Скопировано';
     button.disabled = true;
     setTimeout(() => {
-      button.textContent = label;
+      label.textContent = was;
       button.disabled = false;
     }, COPIED_MS);
+  }
+
+  // Два квадратика, как у кнопки «Скопировать ссылку на страницу» в index.html.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function copyIcon() {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'copy-icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    for (const [k, v] of Object.entries({ x: 9, y: 9, width: 11, height: 11, rx: 2 })) rect.setAttribute(k, v);
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', 'M5 15V6a2 2 0 0 1 2-2h9');
+    svg.append(rect, path);
+    return svg;
   }
 
   function element(tag, className, text) {
@@ -77,7 +94,8 @@
       open.href = result.url;
       open.target = '_blank';
       open.rel = 'noopener noreferrer';
-      const copyButton = element('button', 'ghost', 'Скопировать');
+      const copyButton = element('button', 'ghost copy');
+      copyButton.append(copyIcon(), element('span', 'label', 'Скопировать'));
       copyButton.type = 'button';
       copyButton.onclick = () => copy(result.url, copyButton);
       actions.append(open, copyButton);
@@ -123,7 +141,7 @@
 
   const shortCode = () => (location.pathname.match(SHORT_PATH) || [''])[0].slice(1) || null;
 
-  // Кнопки бота сверху и снизу карточки. Бот качает только песню, поэтому для альбома или исполнителя
+  // Кнопка бота под названием трека. Бот качает только песню, поэтому для альбома или исполнителя
   // (нет songname или q) их нет. Без кода — тоже: ссылка на прошлую песню хуже, чем никакой.
   function showTelegram(code, p) {
     const on = !!code && !!(p.get('songname') || p.get('q'));

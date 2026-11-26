@@ -31,10 +31,9 @@ const linkFromArgv = (argv) => (argv || []).find((a) => typeof a === 'string' &&
 //   POST /link?url=  — открыть, если в приложении включено «Открывать ссылки» (иначе 403);
 //   GET  /prefs      — эта настройка: расширение помнит её на случай, когда приложение не запущено.
 // onLink получает адрес как есть — разбирает его тот же parseLink, что и ссылки babushkin-jam://.
-// onExtension — расширение на связи: приложение знает, что оно установлено.
 const EXTENSION_ORIGIN_RE = /^chrome-extension:\/\/[a-p]{32}$/;
 
-function startLinkServer(onLink, { linksEnabled = () => true, onExtension = () => {} } = {}) {
+function startLinkServer(onLink, { linksEnabled = () => true } = {}) {
   const server = http.createServer((req, res) => {
     res.setHeader('Connection', 'close'); // запросы редкие, держать соединение незачем
     const url = new URL(req.url, `http://${HOST}`);
@@ -51,7 +50,6 @@ function startLinkServer(onLink, { linksEnabled = () => true, onExtension = () =
     }
     const ours = req.headers.host === `${HOST}:${PORT}` && !!req.headers['x-yjam'];
     if (!ours) { res.writeHead(400, cors).end(); return; }
-    onExtension();
     if (req.method === 'GET' && url.pathname === '/prefs') {
       res.writeHead(200, { ...cors, 'Content-Type': 'application/json' }).end(JSON.stringify({ openLinks: !!linksEnabled() }));
       return;

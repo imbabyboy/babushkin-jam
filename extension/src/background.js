@@ -188,7 +188,21 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   if (returnTo && (tabId === returnTo.tabId || tabId === returnTo.ymTabId)) chrome.storage.local.remove('returnTo');
 });
 
+// Шрифт для виджета на чужом сайте: страница сама адрес chrome-extension:// не всегда может загрузить
+// (YouTube), поэтому отдаём байты отсюда, в base64 — сообщения переносят только JSON.
+const FONT_FILE_RE = /^[a-z-]+\.woff2$/;
+async function fontBase64(file) {
+  if (!FONT_FILE_RE.test(String(file))) return null;
+  const res = await fetch(chrome.runtime.getURL('fonts/' + file));
+  if (!res.ok) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { base64: btoa(binary) };
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'yjam:font') { fontBase64(msg.file).then(reply, () => reply(null)); return true; }
   if (msg.type === 'yjam:relay') { relay(msg.msg).then(reply); return true; }
   if (msg.type === 'yjam:focus') { focusTab(msg.from || sender.tab).then(reply); return true; }
   if (msg.type === 'yjam:back') { goBack().then(reply); return true; }

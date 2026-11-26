@@ -12,10 +12,11 @@ const { pathToFileURL } = require('url');
 const { createStore } = require('./store');
 const { createUpdater } = require('./updater');
 const links = require('./links');
-const extension = require('./extension');
 
 const MUSIC_URL = 'https://music.yandex.ru/';
 const RELEASES_URL = 'https://github.com/imbabyboy/babushkin-jam/releases/latest';
+// Подсказка под «Открывать ссылки в приложении»: без расширения в браузере ссылки до приложения не дойдут.
+const EXTENSION_STORE_URL = 'https://chromewebstore.google.com/detail/babushkin-jam/iincaikpjidieflnaajiehogcimgbepe';
 const MUSIC_HOST_RE = /(^|\.)music\.yandex\.(ru|com|by|kz)$/;
 const POLL_MS = 1000;
 const MINI_DRAG_TICK_MS = 16;
@@ -42,9 +43,6 @@ const SETTINGS_GAP = 6;       // от кнопки «Джем» до настр�
 const SETTINGS_MARGIN = 8;    // от настроек до края окна
 const IS_MAC = process.platform === 'darwin';
 const BACKGROUND = '#1C1C1C';
-// Распакованное расширение на диске не найти, поэтому верим, что оно есть, пока оно выходило на связь.
-const EXTENSION_SEEN_MS = 14 * 24 * 60 * 60 * 1000;
-const EXTENSION_SEEN_SAVE_MS = 60 * 60 * 1000; // чаще отметку не переписываем
 
 const GENERATED = path.join(__dirname, '..', 'generated');
 const ASSETS = path.join(__dirname, '..', 'assets');
@@ -225,6 +223,14 @@ async function restorePlayback(status) {
   }
 }
 
+// Cmd+R: адресной строки и F5 у приложения нет. Трек, время и плейлист после перезагрузки возвращаются,
+// как после запуска.
+function reloadMusic() {
+  rememberPlayback(lastStatus.status, true);
+  restoreState = 'reload';
+  musicContents().reload();
+}
+
 // Результат показываем сразу, а не при следующем опросе: иначе кажется, что кнопка не сработала.
 async function control(action) {
   const result = await askMusic({ type: 'yjam:control', action });
@@ -298,18 +304,6 @@ async function openPendingLink() {
   linkOpening = false;
   pushStatus();
   poll();
-}
-
-// Настройку «Открывать ссылки в приложении» расширение берёт отсюда (GET /prefs, POST /link).
-// Без расширения ссылки в приложение не попадут, поэтому настройки сначала проверяют, что оно есть.
-function extensionState() {
-  const { extensionSeenAt } = store.get({ extensionSeenAt: 0 });
-  return { installed: Date.now() - extensionSeenAt < EXTENSION_SEEN_MS || extension.extensionOnDisk() };
-}
-
-function noteExtension() {
-  const { extensionSeenAt } = store.get({ extensionSeenAt: 0 });
-  if (Date.now() - extensionSeenAt > EXTENSION_SEEN_SAVE_MS) store.set({ extensionSeenAt: Date.now() });
 }
 
 // ---------- почему страница Музыки перезагружается ----------
@@ -925,7 +919,7 @@ function applicationMenu() {
       label: 'Вид',
       submenu: [
         { label: 'Настройки…', accelerator: 'CommandOrControl+,', click: () => openSettings('settings') },
-        { label: 'Обновить страницу', accelerator: 'CommandOrControl+R', click: () => musicContents().reload() },
+        { label: 'Обновить страницу', accelerator: 'CommandOrControl+R', click: reloadMusic },
         { role: 'togglefullscreen', label: 'На весь экран' },
         { type: 'separator' },
         { role: 'zoomIn', label: 'Крупнее' },
@@ -1114,13 +1108,7 @@ function setupIpc() {
   handle('yjam:copy-song-page', async (track) => clipboard.writeText(await YJam.shortSongPageUrl(track)));
   handle('yjam:toggle-settings', (page) => toggleSettings(page === 'settings' ? 'settings' : 'main'));
   handle('yjam:close-settings', () => closeSettings());
-  handle('yjam:reload-music', () => {
-    rememberPlayback(lastStatus.status, true);
-    restoreState = 'reload';
-    musicContents().reload();
-  });
-  handle('yjam:extension-state', () => extensionState());
-  handle('yjam:open-extension-store', () => shell.openExternal(extension.STORE_URL));
+  handle('yjam:open-extension-store', () => shell.openExternal(EXTENSION_STORE_URL));
   handle('yjam:update-state', () => updater.getState());
   handle('yjam:update-install', () => updater.install());
   handle('yjam:music-ready', () => currentPage() === 'music');
@@ -1259,7 +1247,7 @@ if (!app.requestSingleInstanceLock()) {
     setInterval(poll, POLL_MS);
     // Из исходников схема зарегистрировалась бы на сам electron — только в установленном приложении.
     if (app.isPackaged) app.setAsDefaultProtocolClient(links.SCHEME);
-    links.startLinkServer(receiveLink, { linksEnabled: () => prefs().openLinks, onExtension: noteExtension });
+    links.startLinkServer(receiveLink, { linksEnabled: () => prefs().openLinks });
     if (launchLink) receiveLink(launchLink);
   });
 }
