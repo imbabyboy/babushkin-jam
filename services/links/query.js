@@ -1,3 +1,5 @@
+import { sourceLink } from './resolve.js';
+
 // Разбор параметров ссылки. Неизвестные параметры игнорируем, чтобы старые ссылки не ломались.
 const MAX_LENGTH = 200;
 const MAX_DURATION_SEC = 36000;
@@ -20,6 +22,8 @@ export function parseQuery(params) {
     year: integer(params, 'year', 1000, 3000),
     duration: integer(params, 'duration', 1, MAX_DURATION_SEC),
     ym: /^(\d+\/)?\d+$/.test(params.get('ym') || '') ? params.get('ym') : '',
+    // Ссылка, которую вставили в поиск: на её сервисе песня уже найдена.
+    link: (sourceLink(params.get('link')) || {}).url || '',
   };
   query.kind = kindOf(query);
   return query;

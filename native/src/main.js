@@ -786,6 +786,75 @@ function pushStatus() {
   for (const w of [mainWindow, miniWindow, trayPanel]) if (w) w.webContents.send('yjam:status', data);
 }
 
+// ---------- прошлая комната после запуска ----------
+// Код комнаты хранится между запусками, и раньше приложение заходило в неё само: люди, давно закончившие
+// джем, через неделю снова оказывались вместе. Теперь при запуске комната уходит в returnRoom, а сервер
+// говорит, кто в ней сейчас (GET /rooms/<код>). Никого — ничего не делаем. Кто-то есть — окно джема
+// спрашивает «Вернуться в комнату?» (settings.js), пока комната не опустеет или человек не решит сам.
+const RETURN_ROOM_POLL_MS = 15000;
+const RETURN_ROOM_TIMEOUT_MS = 5000;
+let returnRoomTimer = null;
+let returnRoomShown = false;
+
+function roomsUrl(code) {
+  const server = store.get({ serverUrl: '' }).serverUrl || YJam.SERVER_URL;
+  return server.replace(/^ws(s?):\/\//i, 'http$1://').replace(/\/+$/, '') + '/rooms/' + encodeURIComponent(code);
+}
+
+// До окон: content.js не должен успеть зайти в комнату. Вопрос, оставшийся без ответа, переживает и следующий запуск.
+function holdRoomOnLaunch() {
+  const { room, returnRoom } = store.get({ room: '', returnRoom: null });
+  const code = room || (returnRoom && returnRoom.code);
+  if (!code) return;
+  store.set({ room: '', returnRoom: { code, members: [] } });
+  checkReturnRoom();
+}
+
+async function checkReturnRoom() {
+  clearTimeout(returnRoomTimer);
+  const asked = store.get({ returnRoom: null }).returnRoom;
+  if (!asked) return;
+  let members = null;
+  let oldServer = false;
+  try {
+    const res = await fetch(roomsUrl(asked.code), { signal: AbortSignal.timeout(RETURN_ROOM_TIMEOUT_MS) });
+    const data = await res.json().catch(() => null);
+    if (data && Array.isArray(data.members)) members = data.members;
+    else oldServer = true; // сервер без /rooms/ отвечает текстом
+  } catch {} // нет сети — спросим позже
+  // Пока ждали ответа, человек мог ответить сам или зайти в другую комнату.
+  const { room, returnRoom } = store.get({ room: '', returnRoom: null });
+  if (!returnRoom || returnRoom.code !== asked.code) return;
+  if (room) { store.set({ returnRoom: null }); return; }
+  // Свой старый сервер не скажет, есть ли кто-то: возвращаемся, как раньше.
+  if (oldServer) { store.set({ room: asked.code, returnRoom: null }); return; }
+  if (members) {
+    const names = members.slice(0, 20).map((m) => String((m && m.name) || 'Гость').slice(0, 40));
+    if (!names.length) { store.set({ returnRoom: null }); return; }
+    store.set({ returnRoom: { code: asked.code, members: names } });
+    if (!returnRoomShown) {
+      returnRoomShown = true;
+      showJam();
+    }
+  }
+  returnRoomTimer = setTimeout(checkReturnRoom, RETURN_ROOM_POLL_MS);
+}
+
+// Окно джема в текущем режиме: в трее — панель у значка.
+function showJam() {
+  if (prefs().mode !== 'tray') { openSettings('main'); return; }
+  if (tray && !(trayPanel && trayPanel.isVisible())) toggleTrayPanel();
+}
+
+function returnRoomItems() {
+  const { returnRoom } = store.get({ returnRoom: null });
+  if (!returnRoom || !returnRoom.members || !returnRoom.members.length) return [];
+  return [
+    { label: `Вернуться в комнату ${returnRoom.code} · ${returnRoom.members.length}`, click: () => store.set({ room: returnRoom.code, returnRoom: null }) },
+    { type: 'separator' },
+  ];
+}
+
 // ---------- комната из меню ----------
 function roomInfo() {
   const st = lastStatus.status;
@@ -808,6 +877,7 @@ function jamItems() {
     return [
       { label: 'Вы не в комнате', enabled: false },
       { type: 'separator' },
+      ...returnRoomItems(),
       { label: 'Создать комнату', click: () => store.set({ room: YJam.randomCode() }) },
       { label: 'Войти по коду…', click: () => openSettings('main') },
       { type: 'separator' },
@@ -940,7 +1010,7 @@ function applicationMenu() {
 // Пересобираем меню, только когда в нём что-то изменилось: обновление раз в секунду закрывало бы его.
 function refreshMenus(force = false) {
   const t = currentTrack();
-  const key = JSON.stringify([t && t.title, t && t.artist, isPlaying(), currentPage(), prefs(), failedHotkeys, roomInfo()]);
+  const key = JSON.stringify([t && t.title, t && t.artist, isPlaying(), currentPage(), prefs(), failedHotkeys, roomInfo(), store.get({ returnRoom: null }).returnRoom]);
   if (!force && key === menuKey) return;
   menuKey = key;
   Menu.setApplicationMenu(applicationMenu());
@@ -1059,6 +1129,8 @@ function onStoreChange(changes) {
   for (const w of [mainWindow, miniWindow, musicView, settingsView, trayPanel]) {
     if (w) w.webContents.send('yjam:storage-changed', changes);
   }
+  // Зашли в комнату (ссылкой, из меню, кнопкой) — вопрос про прошлую больше не нужен.
+  if (changes.room && changes.room.newValue && store.get({ returnRoom: null }).returnRoom) store.set({ returnRoom: null });
   if (changes.miniOnTop) applyMiniOnTop();
   if (changes.miniView && miniWindow) layoutMini();
   if (changes.trayIcon) applyTrayIcon();
@@ -1239,6 +1311,9 @@ if (!app.requestSingleInstanceLock()) {
     setupUpdater();
     setupIpc();
     const startLink = launchLink && links.parseLink(launchLink);
+    // Запустили приглашением ?jam= — комнату выбрали ссылкой, про прошлую не спрашиваем.
+    if (startLink && startLink.jam) store.set({ returnRoom: null });
+    else holdRoomOnLaunch();
     createMainWindow(hasPage(startLink) ? startLink.path : null);
     createMiniWindow();
     applyTrayIcon();

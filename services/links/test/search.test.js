@@ -201,3 +201,23 @@ test('отказ сервиса с кодом 429 или 403 показан ка
   assert.deepEqual([r.deezer.status, r.deezer.reason], ['unavailable', 'rate_limit']);
   assert.deepEqual([r.apple.status, r.apple.reason], ['unavailable', 'denied']);
 });
+
+test('ссылка-источник: её сервис найден без запроса, остальные ищут как обычно', async () => {
+  const calls = [];
+  const search = setup(async (url) => {
+    calls.push(url);
+    return url.includes('deezer') ? json(DEEZER_HIT) : json({ results: [] });
+  });
+  const query = q({ singer: 'A', songname: 'Song', link: 'https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC?si=x' });
+  assert.equal(query.link, 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC');
+  const r = byService(await search.run(query));
+  assert.deepEqual(r.spotify, { service: 'spotify', status: 'found', url: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC' });
+  assert.equal(r.deezer.status, 'found');
+  assert.ok(!calls.some((url) => url.includes('spotify')));
+});
+
+test('ссылка-источник другого вида не подменяет результат', async () => {
+  const search = setup(async () => json({ results: [] }));
+  const r = byService(await search.run(q({ singer: 'A', songname: 'Song', link: 'https://open.spotify.com/album/6N9PS4QXF1D0OWPk0Sxtb4' })));
+  assert.notEqual(r.spotify.status, 'found');
+});

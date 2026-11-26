@@ -185,6 +185,49 @@
   window.addEventListener('focus', render);
   render();
 
+  // После запуска приложение не заходит в прошлую комнату само (main.js, holdRoomOnLaunch). Пока там кто-то есть,
+  // вместо лобби вопрос «Вернуться в комнату?». «Зайти в новую комнату» убирает вопрос: дальше обычное лобби.
+  // Лобби (#setup) прячет CSS по data-return-room, а не hidden: hidden у него переключает popup.js раз в секунду.
+  const back = el('main', 'stack return-room');
+  back.id = 'return-room';
+  const backTitle = el('div', 'title', 'Вернуться в комнату?');
+  const backPeople = el('section', 'people');
+  const backRow = el('div', 'people-row');
+  const backLabel = el('div', 'label people-title');
+  const backCode = el('div', 'return-code');
+  backRow.append(backLabel, backCode);
+  const backList = el('ul', 'members');
+  backPeople.append(backRow, backList);
+  const backJoin = el('button', 'btn-primary', 'Вернуться в комнату');
+  const backNew = el('button', 'btn-outline', 'Зайти в новую комнату');
+  back.append(backTitle, backPeople, backJoin, backNew);
+  document.getElementById('setup').after(back);
+
+  let backRoom = null;
+  backJoin.onclick = () => backRoom && chrome.storage.local.set({ room: backRoom.code, returnRoom: null });
+  backNew.onclick = () => chrome.storage.local.set({ returnRoom: null });
+
+  async function renderReturnRoom() {
+    const { returnRoom } = await chrome.storage.local.get({ returnRoom: null });
+    backRoom = returnRoom && returnRoom.members && returnRoom.members.length ? returnRoom : null;
+    if (backRoom) document.documentElement.dataset.returnRoom = '';
+    else delete document.documentElement.dataset.returnRoom;
+    if (!backRoom) return;
+    backLabel.textContent = `Сейчас в комнате · ${backRoom.members.length}`;
+    backCode.textContent = backRoom.code;
+    backList.replaceChildren(...backRoom.members.map((name, i) => {
+      const li = el('li', 'member');
+      const avatar = el('div', 'avatar', YJam.initial(name));
+      avatar.style.background = YJam.avatarColor(i);
+      const label = el('div', 'member-name');
+      label.append(el('span', '', name));
+      li.append(avatar, label);
+      return li;
+    }));
+  }
+  chrome.storage.onChanged.addListener((changes) => { if (changes.returnRoom) renderReturnRoom(); });
+  renderReturnRoom();
+
   // Высота — по содержимому: в попапе у разных разделов она разная. Меню под гаечным ключом лежит
   // поверх страницы и в её высоту не входит, а обрезать его нельзя.
   const menu = document.getElementById('menu');

@@ -41,3 +41,9 @@ test('подпись запроса', () => {
   assert.equal(describe(q({ singer: 'a', album: 'c' })), 'a — c');
   assert.equal(describe(q({ q: 'd' })), 'd');
 });
+
+test('link принимает только понятные ссылки и пересобирает их', () => {
+  assert.equal(q({ songname: 'S', link: 'https://www.deezer.com/fr/track/1?utm=x' }).link, 'https://www.deezer.com/track/1');
+  assert.equal(q({ songname: 'S', link: 'https://evil.example/track/1' }).link, '');
+  assert.equal(q({ songname: 'S', link: 'javascript:alert(1)' }).link, '');
+});

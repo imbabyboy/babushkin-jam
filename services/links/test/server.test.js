@@ -136,3 +136,12 @@ test('короткая ссылка: пустой запрос, неизвест
   const html = await (await fetch(`${base}/${code}`)).text();
   assert.doesNotMatch(html, /<script>alert/);
 });
+
+test('разбор ссылки: непонятная ссылка — 400 с подсказкой, сбой сервиса — 502', async () => {
+  const unknown = await fetch(base + '/api/resolve?url=' + encodeURIComponent('https://example.com/a/b'));
+  assert.equal(unknown.status, 400);
+  assert.match((await unknown.json()).error, /Spotify/);
+  // Подставной Deezer отвечает выдачей поиска, а не треком: названия в ответе нет.
+  const broken = await fetch(base + '/api/resolve?url=' + encodeURIComponent('https://www.deezer.com/track/1'));
+  assert.equal(broken.status, 502);
+});

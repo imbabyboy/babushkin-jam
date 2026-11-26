@@ -30,8 +30,15 @@ var yjamLinkCheck = (async () => {
   try {
     r = await chrome.runtime.sendMessage({ type: 'yjam:open-in-app', url: location.href, fresh: history.length <= 1 });
   } catch (e) {}
+  // Приложение открыло ссылку — вкладка сейчас закроется.
   if (r && r.sent) return true;
-  // Приложение запускается по ссылке babushkin-jam:// или его нет. Вкладка остаётся обычной страницей Музыки.
+  // Приложение запускается по babushkin-jam://. Сайт дальше не грузим: его плеер синхронизируется с аккаунтом
+  // и подменил бы трек в приложении. Вкладку закроет background.js, а если приложение не ответит — откроет заново.
+  if (r && r.launching) {
+    window.stop();
+    return true;
+  }
+  // Приложения нет, оно выключило ссылки или не запустилось. Вкладка остаётся обычной страницей Музыки.
   try { sessionStorage.setItem(STAY_KEY, '1'); } catch (e) {}
   html.style.removeProperty('visibility');
   return false;

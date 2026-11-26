@@ -9,7 +9,7 @@
     youtube: 'YouTube',
     ytmusic: 'YouTube Music',
   };
-  const QUERY_PARAMS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym'];
+  const QUERY_PARAMS = ['q', 'singer', 'songname', 'album', 'year', 'duration', 'ym', 'link'];
   const COPIED_MS = 1200;
   const SHORT_PATH = /\/[0-9A-Za-z]{7}$/;
   // Бот скачивает песню по коду короткой ссылки: сам открывает её страницу и читает мета-тег song-query.
@@ -26,6 +26,13 @@
     const meta = document.querySelector('meta[name="song-query"]');
     return new URLSearchParams(meta && SHORT_PATH.test(location.pathname) ? meta.content : '');
   }
+  // Ссылка на сервис вместо текста: сервер узнаёт по ней исполнителя и название, дальше обычный поиск.
+  // Слово с точкой и косой чертой, без пробелов: «music.yandex.ru/album/…» без https:// тоже ссылка.
+  const LINK = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+\/\S*$/i;
+  const linkIn = (p) => {
+    const q = (p.get('q') || '').trim();
+    return LINK.test(q) && !['singer', 'songname', 'album'].some((name) => p.get(name)) ? q : null;
+  };
   const hasText = (p) => ['q', 'singer', 'songname', 'album'].some((name) => p.get(name));
 
   function queryLine(p) {
@@ -163,6 +170,8 @@
       showStatus('');
       return;
     }
+    const link = linkIn(p);
+    if (link) return resolve(link, id);
     showStatus('Ищем на сервисах…');
     const search = new URLSearchParams();
     for (const name of QUERY_PARAMS) if (p.get(name)) search.set(name, p.get(name));
@@ -183,6 +192,27 @@
     }
   }
 
+  // Подменяем ?q=<ссылка> на найденные параметры, как будто ввели название: дальше короткая ссылка, бот и обложка
+  // работают как обычно. replaceState, а не pushState: «назад» не должен возвращать на разбор ссылки.
+  async function resolve(link, id) {
+    showStatus('Узнаём песню по ссылке…');
+    try {
+      const res = await fetch('api/resolve?' + new URLSearchParams({ url: link }));
+      const data = await res.json();
+      if (id !== requestId) return;
+      if (!res.ok) {
+        showStatus(data.error || 'Не получилось узнать песню по ссылке');
+        return;
+      }
+      const search = new URLSearchParams();
+      for (const name of QUERY_PARAMS) if (data.query[name]) search.set(name, data.query[name]);
+      history.replaceState(null, '', location.pathname + '?' + search);
+      load();
+    } catch {
+      if (id === requestId) showStatus('Не получилось узнать песню по ссылке. Проверьте интернет и попробуйте ещё раз.');
+    }
+  }
+
   $('form').onsubmit = (e) => {
     e.preventDefault();
     const text = $('q').value.trim();
@@ -191,6 +221,10 @@
     history.pushState(null, '', base + (text ? '?' + new URLSearchParams({ q: text }) : ''));
     load();
   };
+  // Вставили ссылку — ищем сразу, без кнопки «Найти». Текст ждёт кнопку: его часто дописывают.
+  $('q').addEventListener('paste', () => setTimeout(() => {
+    if (LINK.test($('q').value.trim())) $('form').requestSubmit();
+  }));
   $('share').onclick = async (e) => {
     const button = e.currentTarget;
     await shortening;
